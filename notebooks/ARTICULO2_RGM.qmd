@@ -1,0 +1,16 @@
+---
+title: "Análisis Probabilístico del Transporte en México mediante Redes Bayesianas"
+author:
+  - "Rafael Santamaría Heredia | A01646667"
+  - "Grethel Hernández Olivares | A01640912"
+  - "Matías Alfredo Hidalgo Guzmán | A01641323"
+  - "Daniel Rodríguez Peralta | A01646867"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+    df-print: kable
+editor: source
+---
