@@ -1,6 +1,6 @@
 # ============================================================
 # dag1.R
-# médico uno (mamá de Grethel)
+# médico uno (tía de Matías)
 # ============================================================
 
 
@@ -16,23 +16,22 @@ datos_bn[] <- lapply(datos_bn, function(x) if (is.factor(x)) factor(x) else as.n
 # 2. Definir DAG (biomarcadores ERC)
 dag <- empty.graph(names(datos_bn))
 arcs(dag) <- matrix(c(
-  "age", "bp", 
-  "age", "bgr",
-  "bp", "sc", 
+  "age", "bp",
+  "bp", "sc",
   "bgr", "sc",
-  "sc", "bu", 
-  "sc", "sod", 
-  "sc", "pot", 
-  "sc", "hemo", 
-  "sc", "wc",
-  "hemo", "pcv", 
+  "wc", "sc",
+  "sc", "bu",
+  "sc", "sod",
+  "sc", "pot",
+  "sc", "hemo",
+  "hemo", "pcv",
   "hemo", "rc"
 ), ncol = 2, byrow = TRUE, dimnames = list(NULL, c("from", "to")))
 
 # 3. Guardar imagen de la DAG
 dir.create("output/figures", recursive = TRUE, showWarnings = FALSE)
 
-png("output/figures/dag1_ckd.png", width = 1200, height = 900, res = 150)
+png("output/figures/dag2_ckd.png", width = 1200, height = 900, res = 150)
 graphviz.plot(dag, layout = "dot", shape = "ellipse")
 dev.off()
 
