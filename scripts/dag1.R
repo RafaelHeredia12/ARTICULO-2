@@ -18,7 +18,7 @@ dag <- empty.graph(names(datos_bn))
 arcs(dag) <- matrix(c(
   "age", "bp", "age", "bgr",
   "bp", "sc", "bgr", "sc",
-  "sc", "bu", "sc", "sod", "sc", "pot", "sc", "hemo",
+  "sc", "bu", "sc", "sod", "sc", "pot", "sc", "hemo", "sc", "wc",
   "hemo", "pcv", "hemo", "rc"
 ), ncol = 2, byrow = TRUE, dimnames = list(NULL, c("from", "to")))
 
