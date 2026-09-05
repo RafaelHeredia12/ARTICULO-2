@@ -15,7 +15,7 @@
 # ============================================================
 
 # ============================================================
-# 01_limpieza_ckd.R
+# 01_preprocesamiento.R
 # ============================================================
 library(dplyr)
 
@@ -81,6 +81,13 @@ df_final <- df %>% select(all_of(vars_continuas), classification, dm)
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 saveRDS(df_final, "data/processed/ckd_clean.rds")
 write.csv(df_final, "data/processed/ckd_clean.csv", row.names = FALSE, na = "")
+
+# Version SOLO para ajuste de GBN: unicamente las 11 continuas, nada
+# de classification/dm. 
+df_gbn <- df %>% select(all_of(vars_continuas))
+saveRDS(df_gbn, "data/processed/ckd_gbn.rds")
+write.csv(df_gbn, "data/processed/ckd_gbn.csv", row.names = FALSE, na = "")
+
 
 # También guardamos la versión completa (incluye sg, al, su, y las
 # categóricas de texto) por si se usan en la sección de variables

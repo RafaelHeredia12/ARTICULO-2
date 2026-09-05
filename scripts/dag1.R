@@ -9,7 +9,7 @@ library(dplyr)
 library(Rgraphviz)
 
 # 1. Cargar y preparar datos
-df <- read.csv("data/processed/ckd_clean.csv")
+df <- read.csv("data/processed/ckd_gbn.csv")
 datos_bn <- na.omit(df)
 datos_bn[] <- lapply(datos_bn, function(x) if (is.factor(x)) factor(x) else x)
 
