@@ -1,5 +1,5 @@
 ---
-title: "Análisis Probabilístico del Transporte en México mediante Redes Bayesianas"
+title: "Análisis Probabilístico de la Enfermedad Renal Crónica mediante Redes Bayesianas Gaussianas"
 author:
   - "Rafael Santamaría Heredia | A01646667"
   - "Grethel Hernández Olivares | A01640912"
@@ -14,3 +14,157 @@ format:
     df-print: kable
 editor: source
 ---
+
+## Abstract
+
+<!-- TODO: 150-250 palabras. Objetivo, dataset, metodo (GBN), numero de
+estructuras comparadas, hallazgo principal, sin citar tablas/figuras. -->
+
+## Introducción
+
+<!-- TODO:
+- Que es la ERC, por que importa (prevalencia, causas: diabetes/hipertension)
+- Por que un enfoque probabilistico/de red bayesiana es util aqui
+  (relaciones entre biomarcadores, incertidumbre, diagnostico temprano)
+- Objetivo del articulo y estructura del documento
+-->
+
+## Métodos
+
+### Datos
+
+<!-- TODO: fuente del dataset (IIJ-UNAM/UCI), n=400, las 11 variables
+continuas usadas: age, bgr, wc, bp, sc, bu, pot, sod, hemo, pcv, rc -->
+
+### Preprocesamiento
+
+<!-- TODO: resumir 01_preprocesamiento.R -> contaminacion de texto
+(tabs/espacios/"?"), correccion de sod/pot fisiologicamente
+implausibles, % de NA por variable, decision sobre casos completos
+(214/400, 54%) vs. imputacion -->
+
+```{r missingness-table}
+#| echo: false
+# TODO: tabla de % de NA por variable (la que imprime el script de limpieza)
+```
+
+### Estructuras candidatas (DAGs)
+
+<!-- TODO por cada especialista entrevistado (>=3 estructuras), las
+tres usan las mismas 11 variables continuas:
+- Quien es (rol: compañerx/profesorx de la Escuela de Medicina)
+- Relaciones de dependencia propuestas y su justificacion clinica
+-->
+
+```{r dag-1}
+#| echo: false
+# TODO: dag1 <- model2network("[age][bp|age]...")
+# graphviz.plot(dag1)
+```
+
+```{r dag-2}
+#| echo: false
+# TODO: dag2 <- model2network("...")
+```
+
+```{r dag-3}
+#| echo: false
+# TODO: dag3 <- model2network("...")
+```
+
+### Estructura aprendida (hill-climbing)
+
+<!-- TODO: dag_hc <- hc(df[vars_continuas], ...) con blacklist si aplica.
+Como cuarta estructura de comparacion, aprendida directo de los datos. -->
+
+```{r hill-climbing}
+#| echo: false
+# TODO
+```
+
+### Ajuste de las Redes Bayesianas Gaussianas
+
+<!-- TODO: bn.fit() para cada una de las 4 estructuras, MISMA
+submuestra de casos completos (214/400) para que BIC/AIC sean
+comparables entre ellas -->
+
+```{r fit-gbns}
+#| echo: false
+# TODO: fit1 <- bn.fit(dag1, df_cc); fit2 <- ...; fit_hc <- ...
+```
+
+### Variables categóricas: extensión no considerada en el modelo principal
+
+<!-- TODO: discutir como incluir dm (diabetes) u otras categoricas a
+la red (redes condicional-gaussianas / discretas+continuas mixtas en
+bnlearn), sin necesariamente implementarlo en el modelo principal -->
+
+### Modelos no paramétricos
+
+<!-- TODO: investigar si bnlearn u otro paquete permite ajustar nodos
+no parametricos (p.ej. kernel density) y si mejora BIC/AIC vs. el
+mejor modelo gaussiano -->
+
+### Consultas (queries)
+
+<!-- TODO: listar las >=6 queries propuestas por lxs especialistas
+(2 por persona) en notacion de probabilidad, antes de resolverlas -->
+
+## Resultados
+
+<!-- SOLO resultados, sin interpretacion (nota del evaluador del
+articulo anterior: separar "Aplicación y Resultados" en Resultados
+puros + Discusión aparte) -->
+
+### Comparación de BIC y AIC
+
+```{r bic-aic-table}
+#| echo: false
+# TODO: tabla con BIC y AIC de las 4 estructuras (3 de especialistas + hc)
+# score(dag1, df_cc, type="bic-g"); score(dag1, df_cc, type="aic-g"); ...
+```
+
+### Resultados de las consultas (queries)
+
+```{r queries-results}
+#| echo: false
+# TODO: resultados numericos de cpquery()/cpdist() para cada query,
+# sin interpretacion todavia
+```
+
+### Modelos no paramétricos (resultados)
+
+<!-- TODO: BIC/AIC del modelo no parametrico vs. el mejor GBN, si se
+investigo esa alternativa -->
+
+## Discusión
+
+<!-- AQUI SI interpretan, con literatura clinica/estadistica que respalde -->
+
+### Comparación de estructuras
+
+<!-- TODO: por que la mejor estructura (segun BIC/AIC) tiene sentido
+clinico o no; contrastar con lo que proponian lxs especialistas -->
+
+### Interpretación de las consultas
+
+<!-- TODO: que significan clinicamente los resultados de las queries,
+respaldado con referencias -->
+
+### Sobre variables categóricas y modelos no paramétricos
+
+<!-- TODO: interpretar hallazgos de esas secciones exploratorias -->
+
+### Limitaciones
+
+<!-- TODO: perdida de muestra por casos completos (54%), tamaño de
+muestra (n=400), generalizabilidad -->
+
+## Conclusiones
+
+<!-- TODO: 3-5 conclusiones directas, ligadas al objetivo del articulo -->
+
+
+## Referencias
+
+- [Repositorio del Proyecto](https://github.com/RafaelHeredia12/ARTICULO-2)
