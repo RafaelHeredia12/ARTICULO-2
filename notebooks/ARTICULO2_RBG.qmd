@@ -130,27 +130,21 @@ Cada especialista entrevistada propuso dos consultas de interés clínico que pu
 
 **Consultas propuestas por la mamá de Grethel:**
 
-- **Q1.** Probabilidad de que la creatinina sérica supere 1.5 mg/dL en un paciente con presión arterial de 100 mmHg y glucosa en sangre de 150 mg/dL:
-$$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
+- **Q1.** Probabilidad de que la creatinina sérica supere 1.5 mg/dL en un paciente con presión arterial de 100 mmHg y glucosa en sangre de 150 mg/dL: $$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
 
-- **Q2.** Probabilidad de que la hemoglobina sea inferior a 10 g/dL, indicativa de anemia, en un paciente de 65 años:
-$$P(hemo < 10 \mid age = 65)$$
+- **Q2.** Probabilidad de que la hemoglobina sea inferior a 10 g/dL, indicativa de anemia, en un paciente de 65 años: $$P(hemo < 10 \mid age = 65)$$
 
 **Consultas propuestas por la tía de Matías:**
 
-- **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito inferior a 30%:
-$$P(wc > 11000 \mid pcv < 30)$$
+- **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito inferior a 30%: $$P(wc > 11000 \mid pcv < 30)$$
 
-- **Q4.** Probabilidad de que el potasio supere 5.5 mEq/L, umbral de hipercalemia, en un paciente con creatinina sérica de 2.2 mg/dL y urea en sangre de 45 mg/dL:
-$$P(pot > 5.5 \mid sc = 2.2,\ bu = 45)$$
+- **Q4.** Probabilidad de que el potasio supere 5.5 mEq/L, umbral de hipercalemia, en un paciente con creatinina sérica de 2.2 mg/dL y urea en sangre de 45 mg/dL: $$P(pot > 5.5 \mid sc = 2.2,\ bu = 45)$$
 
 **Consultas propuestas por la prima de Daniel:**
 
-- **Q5.** Probabilidad de que el hematocrito sea inferior a 33% en un paciente con urea de 60 mg/dL, sodio de 130 mEq/L y conteo de glóbulos blancos de 11,000 células/mm³:
-$$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
+- **Q5.** Probabilidad de que el hematocrito sea inferior a 33% en un paciente con urea de 60 mg/dL, sodio de 130 mEq/L y conteo de glóbulos blancos de 11,000 células/mm³: $$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
 
-- **Q6.** Probabilidad de un conteo bajo de glóbulos rojos, por debajo de 3.8 millones/µL, en un paciente cuya hemoglobina ha descendido a 9.5 g/dL:
-$$P(rc < 3.8 \mid hemo = 9.5)$$
+- **Q6.** Probabilidad de un conteo bajo de glóbulos rojos, por debajo de 3.8 millones/µL, en un paciente cuya hemoglobina ha descendido a 9.5 g/dL: $$P(rc < 3.8 \mid hemo = 9.5)$$
 
 Las consultas se resolvieron sobre la estructura con mejor ajuste mediante inferencia aproximada por simulación, empleando la función `cpquery()` de `bnlearn`. Dado que toda la evidencia se expresa como valores puntuales sobre variables continuas, se utilizó el método de *likelihood weighting*, apropiado para este tipo de condicionamiento. Cada consulta se estimó con 10⁶ muestras y una semilla fija, de modo que los resultados sean reproducibles pese a la naturaleza estocástica del procedimiento.
 
@@ -276,7 +270,7 @@ kable(tabla_cv,
 
 El modelo no paramétrico obtuvo un BIC de -8740.56 frente a -8799.85 del modelo lineal, una mejora de 59.29 puntos, y un AIC de -8606.15 frente a -8744.31, una mejora de 138.16 puntos.
 
-Todos los términos suaves resultaron significativos (p < 0.05), con la única excepción de s(age) en el nodo bp (p = 0.1949). Los grados de libertad efectivos oscilan entre 1.636, para bp ~ age, y 8.384, para bu ~ sc.
+Todos los términos suaves resultaron significativos (p \< 0.05), con la única excepción de s(age) en el nodo bp (p = 0.1949). Los grados de libertad efectivos oscilan entre 1.636, para bp \~ age, y 8.384, para bu \~ sc.
 
 La descomposición del BIC por distribución local muestra que el término suave mejora el ajuste en 5 de los 10 nodos con padres: pcv (+29.76), hemo (+24.34) y rc (+7.98) concentran la mayor parte de la ganancia, mientras que pot (-4.49), bgr (-2.87), bp (-2.02), wc (-0.98) y sc (-0.55) registran deterioro.
 
@@ -294,17 +288,17 @@ El elemento arquitectónico determinante en el desempeño de la **DAG 1** es la 
 
 Las consultas probabilísticas resueltas sobre la **DAG 1** ofrecen estimaciones numéricas congruentes con el comportamiento clínico de la enfermedad renal crónica:
 
-* **Q1 ($P(sc > 1.5 \mid bp = 100, bgr = 150) = 0.7749$):** En un paciente con presión arterial dentro del rango normal pero con glucosa elevada ($150\text{ mg/dL}$), la probabilidad de presentar creatinina sérica alterada supera el $77\%$. Esto ilustra la nefropatía diabética temprana: la hiperglucemia crónica induce hiperfiltración e hipertrofia glomerular, produciendo daño funcional progresivo aun en ausencia de hipertensión concomitante.
-* **Q2 ($P(hemo < 10 \mid age = 65) = 0.1395$):** La probabilidad de anemia en un individuo de $65$ años sin evidencia directa de daño renal es moderadamente baja ($13.95\%$). Esto concuerda con la práctica clínica: si bien el envejecimiento condiciona una pérdida fisiológica gradual de nefronas, la anemia renal grave no se manifiesta de forma senil aislada, sino como consecuencia directa de un compromiso sostenido en la función renal.
-* **Q4 ($P(pot > 5.5 \mid sc = 2.2, bu = 45) = 0.0601$):** La probabilidad de hipercalemia franca ($pot > 5.5\text{ mEq/L}$) en presencia de creatinina moderadamente elevada ($2.2\text{ mg/dL}$) y urea normal ($45\text{ mg/dL}$) resulta baja ($6.01\%$). En estadios moderados de ERC, los mecanismos compensatorios de secreción de potasio en el túbulo colector distal mediados por aldosterona suelen preservar la normocalemia, de modo que la hipercalemia grave se restringe a estadios terminales o a fallas agudas sobreañadidas. Cabe señalar que, dentro de la **DAG 1**, condicionar en `sc` d-separa a `bu` de `pot` al ser ambos hijos de un padre común, por lo que la evidencia en urea resulta estructuralmente redundante dada la cifra de creatinina.
-* **Q6 ($P(rc < 3.8 \mid hemo = 9.5) = 0.5483$):** Ante una caída de hemoglobina a $9.5\text{ g/dL}$, la probabilidad de registrar un conteo disminuido de glóbulos rojos supera el $54\%$. El resultado refleja el acoplamiento estrecho del eje hematológico posterior en la DAG (`sc` $\rightarrow$ `hemo` $\rightarrow$ `pcv` $\rightarrow$ `rc`).
+- **Q1 (**$P(sc > 1.5 \mid bp = 100, bgr = 150) = 0.7749$): En un paciente con presión arterial dentro del rango normal pero con glucosa elevada ($150\text{ mg/dL}$), la probabilidad de presentar creatinina sérica alterada supera el $77\%$. Esto ilustra la nefropatía diabética temprana: la hiperglucemia crónica induce hiperfiltración e hipertrofia glomerular, produciendo daño funcional progresivo aun en ausencia de hipertensión concomitante.
+- **Q2 (**$P(hemo < 10 \mid age = 65) = 0.1395$): La probabilidad de anemia en un individuo de $65$ años sin evidencia directa de daño renal es moderadamente baja ($13.95\%$). Esto concuerda con la práctica clínica: si bien el envejecimiento condiciona una pérdida fisiológica gradual de nefronas, la anemia renal grave no se manifiesta de forma senil aislada, sino como consecuencia directa de un compromiso sostenido en la función renal.
+- **Q4 (**$P(pot > 5.5 \mid sc = 2.2, bu = 45) = 0.0601$): La probabilidad de hipercalemia franca ($pot > 5.5\text{ mEq/L}$) en presencia de creatinina moderadamente elevada ($2.2\text{ mg/dL}$) y urea normal ($45\text{ mg/dL}$) resulta baja ($6.01\%$). En estadios moderados de ERC, los mecanismos compensatorios de secreción de potasio en el túbulo colector distal mediados por aldosterona suelen preservar la normocalemia, de modo que la hipercalemia grave se restringe a estadios terminales o a fallas agudas sobreañadidas. Cabe señalar que, dentro de la **DAG 1**, condicionar en `sc` d-separa a `bu` de `pot` al ser ambos hijos de un padre común, por lo que la evidencia en urea resulta estructuralmente redundante dada la cifra de creatinina.
+- **Q6 (**$P(rc < 3.8 \mid hemo = 9.5) = 0.5483$): Ante una caída de hemoglobina a $9.5\text{ g/dL}$, la probabilidad de registrar un conteo disminuido de glóbulos rojos supera el $54\%$. El resultado refleja el acoplamiento estrecho del eje hematológico posterior en la DAG (`sc` $\rightarrow$ `hemo` $\rightarrow$ `pcv` $\rightarrow$ `rc`).
 
 #### Justificación formal de las consultas no resolubles
 
 Las consultas **Q3** ($P(wc > 11000 \mid pcv < 30)$) y **Q5** ($P(pcv < 33 \mid bu = 60, sod = 130, wc = 11000)$) no resultaron resolubles en la **DAG 1**:
 
-1. **En Q3:** dentro de la **DAG 1**, el nodo `wc` es hijo directo de `sc`, mientras que `pcv` es hijo de `hemo`, que a su vez desciende de `sc`. La única vía que conecta a `wc` con `pcv` pasa por el nodo ancestro `sc`. Al no condicionar en `sc`, la trayectoria entre `wc` y `pcv` contiene una estructura divergente en `sc` ($wc \leftarrow sc \rightarrow hemo \rightarrow pcv$), la cual queda bloqueada si no se observa la variable intermedia o si el flujo de evidencia no puede activarse. En consecuencia, ambas variables resultan d-separadas ($\mathbf{I}(wc, pcv)$) bajo la evidencia dada.
-2. **En Q5:** los nodos `bu`, `sod` y `wc` son nodos hermanos (todos descendientes directos de `sc`), mientras que `pcv` es descendiente de `hemo` (que también desciende de `sc`). Sin condicionar sobre `sc` o `hemo`, la información proporcionada por los biomarcadores `bu`, `sod` y `wc` no puede fluir hacia el nodo `pcv`.
+1.  **En Q3:** dentro de la **DAG 1**, el nodo `wc` es hijo directo de `sc`, mientras que `pcv` es hijo de `hemo`, que a su vez desciende de `sc`. La única vía que conecta a `wc` con `pcv` pasa por el nodo ancestro `sc`. Al no condicionar en `sc`, la trayectoria entre `wc` y `pcv` contiene una estructura divergente en `sc` ($wc \leftarrow sc \rightarrow hemo \rightarrow pcv$), la cual queda bloqueada si no se observa la variable intermedia o si el flujo de evidencia no puede activarse. En consecuencia, ambas variables resultan d-separadas ($\mathbf{I}(wc, pcv)$) bajo la evidencia dada.
+2.  **En Q5:** los nodos `bu`, `sod` y `wc` son nodos hermanos (todos descendientes directos de `sc`), mientras que `pcv` es descendiente de `hemo` (que también desciende de `sc`). Sin condicionar sobre `sc` o `hemo`, la información proporcionada por los biomarcadores `bu`, `sod` y `wc` no puede fluir hacia el nodo `pcv`.
 
 *Nota metodológica:* Aunque algoritmos de simulación como `cpquery()` pueden arrojar un valor numérico muestral ante cualquier par de variables, cuando la evidencia está d-separada de la variable objetivo, dicho cálculo aproxima la probabilidad marginal $P(Y)$ y no un verdadero condicionamiento condicional $P(Y \mid X)$. Presentar dichos valores como respuestas informadas constituiría un error conceptual.
 
@@ -318,9 +312,9 @@ No obstante, la inferencia probabilística sobre la red CLG demostró una elevad
 
 La relajación del supuesto de linealidad mediante splines en un modelo aditivo generalizado (GAM) produjo una mejora drástica en los criterios globales, ganando $59.29$ puntos de BIC y $138.16$ puntos de AIC frente a la GBN lineal. Sin embargo, la descomposición por distribución local revela una marcada heterogeneidad:
 
-* **No linealidad genuina:** Más del $91\%$ de la ganancia en BIC ($54.10$ de $59.29$ puntos) se concentró exclusivamente en el eje hematológico: `pcv ~ hemo` ($+29.76$) y `hemo ~ sc` ($+24.34$). La validación cruzada confirmó que esta ganancia es real y no fruto del sobreajuste, reduciendo el error fuera de muestra en un $17.4\%$ para `pcv`, $13.1\%$ para `hemo` y $6.8\%$ para `rc`. Desde la perspectiva clínica, esto se explica porque la respuesta hematopoyética a la pérdida de función renal exhibe un efecto de umbral: los niveles de hemoglobina se mantienen estables en fases iniciales y caen aceleradamente cuando el filtrado renal se deteriora de forma severa.
-* **Sobreajuste por asimetría:** En $5$ de los $10$ nodos con padres, el término suave empeoró el BIC. El caso más agudo se observó en `sc ~ bp + bgr`, donde la validación cruzada registró un error de predicción fuera de muestra $26.9\%$ mayor en el modelo GAM que en el lineal. Esto responde a la distribución de la creatinina sérica, fuertemente sesgada a la derecha (mediana $1.15\text{ mg/dL}$ frente a un máximo de $15.2\text{ mg/dL}$); al haber pocas observaciones en la cola superior, los splines intentaron ajustar valores atípicos en lugar de una tendencia biológica subyacente.
-* **Comportamiento de la presión arterial:** El término $s(age)$ sobre `bp` fue el único no significativo ($edf = 1.636, p = 0.1949$), demostrando que la relación entre edad y presión arterial es esencialmente lineal en la cohorte estudiada, condicionada además por la baja resolución de la variable (registrada en múltiplos de $10$).
+- **No linealidad genuina:** Más del $91\%$ de la ganancia en BIC ($54.10$ de $59.29$ puntos) se concentró exclusivamente en el eje hematológico: `pcv ~ hemo` ($+29.76$) y `hemo ~ sc` ($+24.34$). La validación cruzada confirmó que esta ganancia es real y no fruto del sobreajuste, reduciendo el error fuera de muestra en un $17.4\%$ para `pcv`, $13.1\%$ para `hemo` y $6.8\%$ para `rc`. Desde la perspectiva clínica, esto se explica porque la respuesta hematopoyética a la pérdida de función renal exhibe un efecto de umbral: los niveles de hemoglobina se mantienen estables en fases iniciales y caen aceleradamente cuando el filtrado renal se deteriora de forma severa.
+- **Sobreajuste por asimetría:** En $5$ de los $10$ nodos con padres, el término suave empeoró el BIC. El caso más agudo se observó en `sc ~ bp + bgr`, donde la validación cruzada registró un error de predicción fuera de muestra $26.9\%$ mayor en el modelo GAM que en el lineal. Esto responde a la distribución de la creatinina sérica, fuertemente sesgada a la derecha (mediana $1.15\text{ mg/dL}$ frente a un máximo de $15.2\text{ mg/dL}$); al haber pocas observaciones en la cola superior, los splines intentaron ajustar valores atípicos en lugar de una tendencia biológica subyacente.
+- **Comportamiento de la presión arterial:** El término $s(age)$ sobre `bp` fue el único no significativo ($edf = 1.636, p = 0.1949$), demostrando que la relación entre edad y presión arterial es esencialmente lineal en la cohorte estudiada, condicionada además por la baja resolución de la variable (registrada en múltiplos de $10$).
 
 Metodológicamente, estos hallazgos indican que la arquitectura óptima no es puramente flexible ni puramente lineal, sino mixta: el uso de splines debe restringirse a las relaciones del eje hematológico, preservando la formulación lineal gaussiana en las dependencias metabólicas y vasculares.
 
@@ -334,33 +328,43 @@ Esto indica que el cuello de botella principal de la GBN estándar no residía e
 
 El estudio presenta cuatro limitaciones principales que deben considerarse al interpretar los resultados:
 
-1. **Pérdida de datos por casos completos:** La restricción a registros sin valores faltantes redujo la muestra de $400$ a $214$ casos (una pérdida del $46.5\%$), concentrada en variables hematológicas y electrolitos. Si el patrón de ausencia no cumple el supuesto de faltantes completamente al azar (MCAR), el análisis podría estar sujeto a sesgo de selección.
-2. **Tamaño muestral:** Un total de $214$ observaciones resulta moderado para la estimación simultánea de $11$ distribuciones locales continuas y sus parámetros de varianza.
-3. **Construcción de estructuras:** Los DAGs candidatas derivan de entrevistas individuales con tres profesionales y estudiantes del área de la salud del entorno cercano de los autores, en lugar de una metodología formal de consenso (como un panel Delphi) con nefrólogos especialistas.
-4. **Validez externa:** El conjunto de datos original no especifica el origen geográfico ni la composición étnica exacta de la población muestreada, restringiendo la extrapolación de los umbrales numéricos a otros entornos clínicos.
+1.  **Pérdida de datos por casos completos:** La restricción a registros sin valores faltantes redujo la muestra de $400$ a $214$ casos (una pérdida del $46.5\%$), concentrada en variables hematológicas y electrolitos. Si el patrón de ausencia no cumple el supuesto de faltantes completamente al azar (MCAR), el análisis podría estar sujeto a sesgo de selección.
+2.  **Tamaño muestral:** Un total de $214$ observaciones resulta moderado para la estimación simultánea de $11$ distribuciones locales continuas y sus parámetros de varianza.
+3.  **Construcción de estructuras:** Los DAGs candidatas derivan de entrevistas individuales con tres profesionales y estudiantes del área de la salud del entorno cercano de los autores, en lugar de una metodología formal de consenso (como un panel Delphi) con nefrólogos especialistas.
+4.  **Validez externa:** El conjunto de datos original no especifica el origen geográfico ni la composición étnica exacta de la población muestreada, restringiendo la extrapolación de los umbrales numéricos a otros entornos clínicos.
 
 ## Conclusiones
 
+```{=html}
 <!-- TODO: 3-5 conclusiones concretas ligadas al objetivo planteado en
 la Introducción. Sin información nueva. -->
+```
 
 ## Referencias
 
-Diabetes.org (American Diabetes Association). (s.f.). Diabetes, presión arterial alta y enfermedad renal crónica (ERC). Recuperado el 5 de septiembre de 2026, de https://diabetes.org/es/sobre-la-diabetes/complicaciones/enfermedad-renal-cronica/diabetes-presion-arterial-alta-enfermedad-renal-cronica
+Diabetes.org (American Diabetes Association). (s.f.). *Diabetes, presión arterial alta y enfermedad renal crónica (ERC)*. Recuperado el 5 de septiembre de 2026, de https://diabetes.org/es/sobre-la-diabetes/complicaciones/enfermedad-renal-cronica/diabetes-presion-arterial-alta-enfermedad-renal-cronica[cite: 15]
 
-National Kidney Foundation. (2024, 8 noviembre). La hipertensión arterial y la diabetes: dos enemigos silenciosos para tus riñones. Kidney.org. https://www.kidney.org/es/news-stories/la-hipertension-arterial-y-la-diabetes-dos-enemigos-silenciosos-para-tus-rinones
+Kidney Disease: Improving Global Outcomes (KDIGO) Anemia Work Group. (2012). KDIGO Clinical Practice Guideline for Anemia in Chronic Kidney Disease. *Kidney International Supplements*, 2(4), 279–335. https://doi.org/10.1038/kisup.2012.33
 
-Organización Panamericana de la Salud. (2014, 11 marzo). Crece el número de enfermos renales entre los mayores de 60 años con diabetes e hipertensión. OPS/OMS. https://www.paho.org/es/noticias/11-3-2014-crece-numero-enfermos-renales-entre-mayores-60-anos-con-diabetes-e-hipertension
+Koller, D., & Friedman, N. (2009). *Probabilistic Graphical Models: Principles and Techniques*. MIT Press.
 
-Rubini, L., Soundarapandian, P., & Eswaran, P. (2015). Chronic Kidney Disease [Conjunto de datos]. UCI Machine Learning Repository. https://doi.org/10.24432/C5G020
+Kovesdy, C. P. (2014). Management of hyperkalemia in chronic kidney disease. *Nature Reviews Nephrology*, 10(11), 653–662. https://doi.org/10.1038/nrneph.2014.168
 
-Serna-Soto, J. L., Ortega-Mendoza, R. A. de J., Rivera-Ramírez, O. A., & Pérez-Peláez, G. C. (2016). Prevalencia de enfermedad renal crónica en pacientes con diabetes mellitus e hipertensión arterial en el Hospital Escandón. Salud Pública de México, 58(3), 338–339. https://doi.org/10.21149/spm.v58i3.7918
+National Kidney Foundation. (2024, 8 de noviembre). *La hipertensión arterial y la diabetes: dos enemigos silenciosos para tus riñones*. Kidney.org. https://www.kidney.org/es/news-stories/la-hipertension-arterial-y-la-diabetes-dos-enemigos-silenciosos-para-tus-rinones[cite: 15]
 
-Vertigo Político. (2022). Los principales responsables de la enfermedad renal crónica son la diabetes y la hipertensión arterial. https://www.vertigopolitico.com/bienestar/notas/los-principales-responsables-la-enfermedad-renal-cronica-son-la-diabetes-y
+Organización Panamericana de la Salud. (2014, 11 de marzo). *Crece el número de enfermos renales entre los mayores de 60 años con diabetes e hipertensión*. OPS/OMS. https://www.paho.org/es/noticias/11-3-2014-crece-numero-enfermos-renales-entre-mayores-60-anos-con-diabetes-e-hipertension[cite: 15]
 
-<!-- TODO: agregar referencias metodológicas (bnlearn, Koller & Friedman
-o similar sobre redes bayesianas, y fuentes clínicas para respaldar la
-interpretación de las queries en la Discusión) -->
+Rubini, L., Soundarapandian, P., & Eswaran, P. (2015). *Chronic Kidney Disease* [Conjunto de datos]. UCI Machine Learning Repository. https://doi.org/10.24432/C5G020[cite: 15]
+
+Scutari, M. (2010). Learning Bayesian Networks with the bnlearn R Package. *Journal of Statistical Software*, 35(3), 1–22. https://doi.org/10.18637/jss.v035.i03
+
+Serna-Soto, J. L., Ortega-Mendoza, R. A. de J., Rivera-Ramírez, O. A., & Pérez-Peláez, G. C. (2016). Prevalencia de enfermedad renal crónica en pacientes con diabetes mellitus e hipertensión arterial en el Hospital Escandón. *Salud Pública de México*, 58(3), 338–339. https://doi.org/10.21149/spm.v58i3.7918[cite: 15]
+
+Thomas, R., Kanso, A., & Sedor, J. R. (2008). Chronic kidney disease and its complications. *Primary Care: Clinics in Office Practice*, 35(2), 329–344. https://doi.org/10.1016/j.pop.2008.01.008
+
+Vertigo Político. (2022). *Los principales responsables de la enfermedad renal crónica son la diabetes y la hipertensión arterial*. https://www.vertigopolitico.com/bienestar/notas/los-principales-responsables-la-enfermedad-renal-cronica-son-la-diabetes-y[cite: 15]
+
+Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R* (2nd ed.). CRC Press. https://doi.org/10.1201/9781315370279
+```
 
 - [Repositorio del Proyecto](https://github.com/RafaelHeredia12/ARTICULO-2)
-
