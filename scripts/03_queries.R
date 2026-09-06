@@ -1,175 +1,149 @@
 # ============================================================
-# 04_categoricas.R
-# Modelo mixto: extension de la mejor GBN (DAG 1) con
-# variables categoricas dm (diabetes) y htn (hipertension)
+# 03_queries.R
+# Inferencia con la mejor GBN (DAG 1)
 # Proyecto: Redes Bayesianas Gaussianas - ERC
 # ============================================================
-# Las variables categoricas solo pueden ser nodos raiz o
-# padres de nodos continuos en bnlearn (redes condicional-
-# gaussianas). Nunca hijos de nodos continuos.
+# Carga la mejor red ya ajustada por 02_comparacion_dags.R y
+# responde las 6 consultas propuestas por las especialistas.
 #
-# Arcos nuevos justificados clinicamente:
-#   dm  -> bgr  (diabetes eleva glucosa en sangre)
-#   dm  -> sc   (diabetes daña riñones, eleva creatinina)
-#   htn -> bp   (hipertension es por definicion bp elevada)
-#   htn -> sc   (hipertension daña riñones igual que diabetes)
+# Estructura DAG 1 (referencia para el analisis de d-separacion):
+#   age  -> bp,  age -> bgr
+#   bp   -> sc,  bgr -> sc
+#   sc   -> bu, sod, pot, hemo, wc
+#   hemo -> pcv, rc
 #
-# Output:
-#   output/figures/dag_mixto.png       -> imagen de la DAG mixta
-#   data/processed/mejor_gbn_mixto.rds -> bn.fit del modelo mixto
-#   data/processed/scores_mixto.rds    -> BIC/AIC gaussiano vs mixto
 # ============================================================
 
 library(bnlearn)
-library(Rgraphviz)
 
 # ------------------------------------------------------------
-# 1. Cargar datos
+# 1. Cargar la mejor red ajustada
 # ------------------------------------------------------------
-df_full <- readRDS("data/processed/ckd_clean_full.rds")
+ckd_fit <- readRDS("data/processed/mejor_gbn.rds")
 
-# Seleccionar las 11 continuas + dm + htn
-vars_modelo <- c("age", "bgr", "wc", "bp", "sc", "bu",
-                 "pot", "sod", "hemo", "pcv", "rc",
-                 "dm", "htn")
-dat_mixto <- df_full[, vars_modelo]
-
-# Convertir categoricas a factor
-dat_mixto$dm  <- factor(dat_mixto$dm,  levels = c("no", "yes"))
-dat_mixto$htn <- factor(dat_mixto$htn, levels = c("no", "yes"))
-
-# Casos completos (mismo criterio que en los scripts anteriores)
-dat_mixto <- na.omit(dat_mixto)
-cat("Casos completos para el modelo mixto:", nrow(dat_mixto), "\n")
-
-dir.create("output/figures", recursive = TRUE, showWarnings = FALSE)
+set.seed(123)   # cpquery con method="lw" es estocastico
+N <- 1e6        # numero de muestras por consulta
 
 # ------------------------------------------------------------
-# 2. Definir la DAG mixta
-# DAG 1 extendida con dm y htn como nodos raiz
+# Q1 - Especialista 1
+# ¿Probabilidad de creatinina serica > 1.5 mg/dL dado que la
+# presion arterial es 100 mmHg y la glucosa 150 mg/dL?
+# Camino: bp -> sc <- bgr (padres directos)
 # ------------------------------------------------------------
-dag_mixto <- empty.graph(names(dat_mixto))
-arcs(dag_mixto) <- matrix(c(
-  # Arcos originales DAG 1
-  "age",  "bp",
-  "age",  "bgr",
-  "bp",   "sc",
-  "bgr",  "sc",
-  "sc",   "bu",
-  "sc",   "sod",
-  "sc",   "pot",
-  "sc",   "hemo",
-  "sc",   "wc",
-  "hemo", "pcv",
-  "hemo", "rc",
-  # Arcos nuevos: categoricas -> continuas
-  "dm",   "bgr",
-  "dm",   "sc",
-  "htn",  "bp",
-  "htn",  "sc"
-), ncol = 2, byrow = TRUE, dimnames = list(NULL, c("from", "to")))
-
-# Verificar que es un DAG valido
-stopifnot(acyclic(dag_mixto))
-cat("DAG mixta valida (aciclica): OK\n")
+q1 <- cpquery(ckd_fit, event = (sc > 1.5),
+              evidence = list(bp = 100, bgr = 150),
+              method = "lw", n = N)
+cat("Q1  P(sc > 1.5 | bp = 100, bgr = 150) =", round(q1, 4), "\n")
 
 # ------------------------------------------------------------
-# 3. Imagen de la DAG mixta
+# Q2 - Especialista 1
+# ¿Probabilidad de hemoglobina < 10 g/dL dado 65 años?
+# Camino: age -> bp -> sc -> hemo  y  age -> bgr -> sc -> hemo
 # ------------------------------------------------------------
-# Colorear nodos: categoricos en gris, continuos en blanco
-nodos_cat  <- c("dm", "htn")
-nodos_cont <- setdiff(names(dat_mixto), nodos_cat)
+q2 <- cpquery(ckd_fit, event = (hemo < 10),
+              evidence = list(age = 65),
+              method = "lw", n = N)
+cat("Q2  P(hemo < 10 | age = 65) =", round(q2, 4), "\n")
 
-node_attrs <- list(
-  fillcolor = setNames(
-    c(rep("lightgrey", length(nodos_cat)),
-      rep("white", length(nodos_cont))),
-    c(nodos_cat, nodos_cont)
-  )
+# ------------------------------------------------------------
+# Q3 - Especialista 2
+# ¿Probabilidad de leucocitos > 11,000 dado hematocrito bajo?
+# Camino ACTIVO: wc <- sc -> hemo -> pcv
+# El enunciado clinico dice "pcv < 30"; cpquery con method="lw"
+# requiere evidencia puntual para nodos continuos, por lo que se
+# usa pcv = 28 como valor representativo de ese rango. Esta
+# aproximacion debe declararse en el articulo.
+# ------------------------------------------------------------
+q3 <- cpquery(ckd_fit, event = (wc > 11000),
+              evidence = list(pcv = 28),
+              method = "lw", n = N)
+cat("Q3  P(wc > 11000 | pcv = 28) =", round(q3, 4), "\n")
+
+# ------------------------------------------------------------
+# Q4 - Especialista 2
+# ¿Probabilidad de potasio > 5.5 mEq/L dado sc = 2.2 y bu = 45?
+# sc -> pot es el camino informativo. La evidencia en bu es
+# REDUNDANTE dado sc (ambos hijos de sc: condicionar en el padre
+# comun los d-separa). Se calculan ambas versiones para
+# documentar empiricamente esa redundancia.
+# ------------------------------------------------------------
+q4 <- cpquery(ckd_fit, event = (pot > 5.5),
+              evidence = list(sc = 2.2, bu = 45),
+              method = "lw", n = N)
+q4_solo_sc <- cpquery(ckd_fit, event = (pot > 5.5),
+                      evidence = list(sc = 2.2),
+                      method = "lw", n = N)
+cat("Q4  P(pot > 5.5 | sc = 2.2, bu = 45) =", round(q4, 4), "\n")
+cat("    P(pot > 5.5 | sc = 2.2)          =", round(q4_solo_sc, 4),
+    "  <- practicamente identica: bu es redundante dado sc\n")
+
+# ------------------------------------------------------------
+# Q5 - Especialista 3
+# ¿Probabilidad de hematocrito < 33% dado bu, sod y wc?
+# Caminos ACTIVOS: cada uno de bu, sod y wc se conecta con pcv
+# a traves de  X <- sc -> hemo -> pcv
+# ------------------------------------------------------------
+q5 <- cpquery(ckd_fit, event = (pcv < 33),
+              evidence = list(bu = 60, sod = 130, wc = 11000),
+              method = "lw", n = N)
+cat("Q5  P(pcv < 33 | bu = 60, sod = 130, wc = 11000) =", round(q5, 4), "\n")
+
+# ------------------------------------------------------------
+# Q6 - Especialista 3
+# ¿Probabilidad de globulos rojos < 3.8 dado hemoglobina 9.5?
+# Camino: hemo -> rc (padre directo)
+# ------------------------------------------------------------
+q6 <- cpquery(ckd_fit, event = (rc < 3.8),
+              evidence = list(hemo = 9.5),
+              method = "lw", n = N)
+cat("Q6  P(rc < 3.8 | hemo = 9.5) =", round(q6, 4), "\n")
+
+# ------------------------------------------------------------
+# 2. Probabilidades marginales de referencia
+#    Permiten cuantificar cuanto desplaza la evidencia a la
+#    probabilidad del evento: si condicional ~ marginal, la
+#    evidencia aporta poca informacion aunque el camino
+#    este activo.
+# ------------------------------------------------------------
+cat("\n=== Marginales de referencia (sin evidencia) ===\n")
+m_sc   <- cpquery(ckd_fit, event = (sc > 1.5),    evidence = TRUE, n = N)
+m_hemo <- cpquery(ckd_fit, event = (hemo < 10),   evidence = TRUE, n = N)
+m_wc   <- cpquery(ckd_fit, event = (wc > 11000),  evidence = TRUE, n = N)
+m_pot  <- cpquery(ckd_fit, event = (pot > 5.5),   evidence = TRUE, n = N)
+m_pcv  <- cpquery(ckd_fit, event = (pcv < 33),    evidence = TRUE, n = N)
+m_rc   <- cpquery(ckd_fit, event = (rc < 3.8),    evidence = TRUE, n = N)
+
+marginales <- c(m_sc, m_hemo, m_wc, m_pot, m_pcv, m_rc)
+condicionales <- c(q1, q2, q3, q4, q5, q6)
+
+comparacion <- data.frame(
+  Consulta   = paste0("Q", 1:6),
+  Marginal   = round(marginales, 4),
+  Condicional= round(condicionales, 4),
+  Desplaza   = round(condicionales - marginales, 4)
+)
+print(comparacion, row.names = FALSE)
+
+# ------------------------------------------------------------
+# 3. Guardar resultados para el articulo
+# ------------------------------------------------------------
+resultados <- list(
+  q1 = list(enunciado = "P(sc > 1.5 | bp = 100, bgr = 150)",
+            resultado = q1, marginal = m_sc),
+  q2 = list(enunciado = "P(hemo < 10 | age = 65)",
+            resultado = q2, marginal = m_hemo),
+  q3 = list(enunciado = "P(wc > 11000 | pcv = 28)",
+            resultado = q3, marginal = m_wc,
+            nota = "enunciado original pcv < 30; se usa 28 como valor puntual"),
+  q4 = list(enunciado = "P(pot > 5.5 | sc = 2.2, bu = 45)",
+            resultado = q4, marginal = m_pot,
+            nota = "bu redundante dado sc; sin bu: P = ", q4_solo_sc),
+  q5 = list(enunciado = "P(pcv < 33 | bu = 60, sod = 130, wc = 11000)",
+            resultado = q5, marginal = m_pcv),
+  q6 = list(enunciado = "P(rc < 3.8 | hemo = 9.5)",
+            resultado = q6, marginal = m_rc)
 )
 
-png("output/figures/dag_mixto.png", width = 1400, height = 1000, res = 150)
-graphviz.plot(dag_mixto, layout = "dot", shape = "ellipse",
-              attrs = list(node = list(style = "filled")),
-              highlight = list(nodes = nodos_cat,
-                               fill  = "lightgrey",
-                               col   = "black"))
-dev.off()
-cat("Imagen guardada: output/figures/dag_mixto.png\n")
-
-# ------------------------------------------------------------
-# 4. Ajustar el modelo mixto
-# bnlearn ajusta automaticamente como condicional-gaussiana
-# cuando detecta nodos factor con hijos continuos
-# ------------------------------------------------------------
-fit_mixto <- bn.fit(dag_mixto, dat_mixto)
-cat("Tipo de nodo dm  :", class(fit_mixto$dm),  "\n")
-cat("Tipo de nodo htn :", class(fit_mixto$htn), "\n")
-cat("Tipo de nodo bgr :", class(fit_mixto$bgr), "\n")
-
-# ------------------------------------------------------------
-# 5. Comparar BIC/AIC: gaussiano puro vs. modelo mixto
-# Usamos los mismos casos completos para comparacion justa
-# ------------------------------------------------------------
-
-# Subconjunto de casos que tienen dm y htn (para el gaussiano puro)
-dat_gauss <- dat_mixto[, c("age","bgr","wc","bp","sc","bu",
-                           "pot","sod","hemo","pcv","rc")]
-dat_gauss[] <- lapply(dat_gauss, as.numeric)
-
-dag_gauss <- empty.graph(names(dat_gauss))
-arcs(dag_gauss) <- matrix(c(
-  "age","bp", "age","bgr",
-  "bp","sc",  "bgr","sc",
-  "sc","bu",  "sc","sod",
-  "sc","pot", "sc","hemo",
-  "sc","wc",  "hemo","pcv",
-  "hemo","rc"
-), ncol = 2, byrow = TRUE, dimnames = list(NULL, c("from","to")))
-
-bic_gauss <- score(dag_gauss,  data = dat_gauss,  type = "bic-g")
-aic_gauss <- score(dag_gauss,  data = dat_gauss,  type = "aic-g")
-bic_mixto <- score(dag_mixto,  data = dat_mixto,  type = "bic-cg")
-aic_mixto <- score(dag_mixto,  data = dat_mixto,  type = "aic-cg")
-
-tabla_scores <- data.frame(
-  Modelo = c("GBN Gaussiana pura (DAG 1)",
-             "GBN Condicional-Gaussiana (DAG 1 + dm + htn)"),
-  Nodos  = c(11, 13),
-  Arcos  = c(nrow(arcs(dag_gauss)), nrow(arcs(dag_mixto))),
-  BIC    = round(c(bic_gauss, bic_mixto), 2),
-  AIC    = round(c(aic_gauss, aic_mixto), 2)
-)
-
-cat("\n=== Comparacion: GBN pura vs. modelo mixto ===\n")
-print(tabla_scores)
-cat("(mayor = mejor en bnlearn)\n\n")
-
-# ------------------------------------------------------------
-# 6. Inferencia de ejemplo con el modelo mixto
-# ¿Cual es la probabilidad de sc > 1.5 dado dm = yes y htn = yes?
-# Muestra como las categoricas enriquecen la inferencia
-# ------------------------------------------------------------
-set.seed(123)
-cat("Ejemplo de inferencia con modelo mixto:\n")
-cat("P(sc > 1.5 | dm = yes, htn = yes):\n")
-p_mixto <- cpquery(fit_mixto,
-                   event    = (sc > 1.5),
-                   evidence = list(dm = "yes", htn = "yes"),
-                   method   = "lw", n = 1e6)
-cat("Resultado:", round(p_mixto, 4), "\n\n")
-
-cat("P(sc > 1.5 | dm = no, htn = no):\n")
-p_sano <- cpquery(fit_mixto,
-                  event    = (sc > 1.5),
-                  evidence = list(dm = "no", htn = "no"),
-                  method   = "lw", n = 1e6)
-cat("Resultado:", round(p_sano, 4), "\n")
-cat("-> La diferencia entre ambos ilustra el efecto de dm y htn sobre sc.\n\n")
-
-# ------------------------------------------------------------
-# 7. Guardar outputs
-# ------------------------------------------------------------
-saveRDS(fit_mixto,    "data/processed/mejor_gbn_mixto.rds")
-saveRDS(tabla_scores, "data/processed/scores_mixto.rds")
-cat("Guardado: mejor_gbn_mixto.rds, scores_mixto.rds\n")
+saveRDS(resultados,  "data/processed/resultados_queries.rds")
+saveRDS(comparacion, "data/processed/comparacion_marginales.rds")
+cat("\nGuardado: resultados_queries.rds, comparacion_marginales.rds\n")

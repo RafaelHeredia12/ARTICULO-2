@@ -21,18 +21,23 @@ library(bnlearn)
 library(knitr)
 
 # Resultados precalculados por los scripts 01-05
+datos_gbn      <- readRDS("../data/processed/ckd_gbn.rds")
 tabla_dags     <- readRDS("../data/processed/comparacion_bic_aic.rds")
 resultados_q   <- readRDS("../data/processed/resultados_queries.rds")
+comp_marg      <- readRDS("../data/processed/comparacion_marginales.rds")
 tabla_mixto    <- readRDS("../data/processed/scores_mixto.rds")
 tabla_np       <- readRDS("../data/processed/scores_noparametrico.rds")
 tabla_edf      <- readRDS("../data/processed/edf_gam.rds")
 tabla_nodo     <- readRDS("../data/processed/bic_por_nodo.rds")
 tabla_cv       <- readRDS("../data/processed/cv_gam.rds")
+
+dat_cc <- na.omit(datos_gbn)
+dat_cc[] <- lapply(dat_cc, as.numeric)
 ```
 
 ## Abstract
 
-Este trabajo implementa un modelo probabilístico —una red bayesiana gaussiana (GBN)— para comprender cómo distintos biomarcadores clínicos influyen en el diagnóstico de la enfermedad renal crónica (ERC) y para responder consultas probabilísticas de relevancia clínica. Se utilizó el *Chronic Kidney Disease Dataset*, restringido a sus once variables continuas sobre una submuestra de 214 casos completos. A partir de entrevistas con tres especialistas del entorno médico se construyeron tres estructuras candidatas (DAGs), que comparten un núcleo causal común —la edad como origen, la presión arterial y la glucosa como factores de riesgo intermedios, y un eje hematológico como consecuencia del daño renal— pero difieren en la ubicación de la creatinina sérica y en el número y disposición de los arcos. Las tres redes se ajustaron por máxima verosimilitud y se evaluaron con los criterios BIC y AIC. La estructura que ubica a la creatinina sérica como único punto de convergencia (DAG 1) obtuvo el mejor ajuste en ambos criterios, pese a no ser la más compleja de las tres.
+Este trabajo implementa un modelo probabilístico —una red bayesiana gaussiana (GBN)— para comprender cómo distintos biomarcadores clínicos influyen en el diagnóstico de la enfermedad renal crónica (ERC) y para responder consultas probabilísticas de relevancia clínica. Se utilizó el *Chronic Kidney Disease Dataset*, restringido a sus once variables continuas sobre una submuestra de 214 casos completos. A partir de entrevistas con tres especialistas del área de la salud se construyeron tres estructuras candidatas (DAGs), que comparten un núcleo causal común —la edad como origen, la presión arterial y la glucosa como factores de riesgo intermedios, y un eje hematológico como consecuencia del daño renal— pero difieren en la ubicación de la creatinina sérica y en el número y disposición de los arcos. Las tres redes se ajustaron por máxima verosimilitud y se evaluaron con los criterios BIC y AIC. La estructura que ubica a la creatinina sérica como único punto de convergencia (DAG 1) obtuvo el mejor ajuste en ambos criterios, pese a no ser la más compleja de las tres. Sobre ella se respondieron las seis consultas planteadas por las especialistas mediante inferencia aproximada, contrastando cada probabilidad condicional con su marginal correspondiente para cuantificar el aporte informativo real de la evidencia. Se exploraron además dos extensiones: la incorporación de comorbilidades categóricas mediante una red condicional-gaussiana, que deterioró los criterios de información pero permitió una estratificación clínica del riesgo, y la relajación del supuesto de linealidad mediante splines, que mejoró el ajuste agregado de forma concentrada en el eje hematológico.
 
 ## Introducción
 
@@ -42,13 +47,13 @@ Las dos causas principales son ampliamente reconocidas: la diabetes mellitus exp
 
 El diagnóstico de ERC no depende de un solo valor de laboratorio, sino de la interacción entre múltiples biomarcadores (creatinina, urea, hemoglobina, potasio, sodio, entre otros) que están relacionados entre sí de manera causal y no siempre lineal. Un enfoque de caja negra pierde información valiosa sobre cómo estas variables se influyen unas a otras.
 
-Una red bayesiana gaussiana (GBN) resuelve esto de dos formas complementarias: primero, modela explícitamente la incertidumbre, ya que en vez de dar una predicción puntual entrega distribuciones de probabilidad completas, lo que permite responder preguntas del tipo "¿qué tan probable es que la creatinina esté elevada dado que el paciente tiene cierta edad y presión arterial?", algo especialmente útil para apoyar decisiones clínicas donde rara vez hay certeza absoluta; y segundo, representa relaciones causales interpretables, la estructura de grafo dirigido (DAG) permite trazar visualmente cómo el envejecimiento y los factores de riesgo (presión arterial, glucosa) impactan la función renal, y cómo esta a su vez repercute en marcadores hematológicos secundarios como la anemia.
+Una red bayesiana gaussiana (GBN) resuelve esto de dos formas complementarias: primero, modela explícitamente la incertidumbre, ya que en vez de dar una predicción puntual entrega distribuciones de probabilidad completas, lo que permite responder preguntas del tipo "¿qué tan probable es que la creatinina esté elevada dado que el paciente tiene cierta edad y presión arterial?", algo especialmente útil para apoyar decisiones clínicas donde rara vez hay certeza absoluta; y segundo, representa relaciones causales interpretables, ya que la estructura de grafo dirigido (DAG) permite trazar visualmente cómo el envejecimiento y los factores de riesgo (presión arterial, glucosa) impactan la función renal, y cómo esta a su vez repercute en marcadores hematológicos secundarios como la anemia.
 
 Esto conecta directamente con el reconocimiento de patrones: la red no solo predice, sino que expone la arquitectura de dependencias entre variables, permitiendo un diagnóstico temprano basado en evidencia observable (biomarcadores) en lugar de esperar síntomas avanzados.
 
 El objetivo de este trabajo es implementar un modelo probabilístico —una red bayesiana gaussiana— que ayude a comprender cómo diferentes biomarcadores influyen en el diagnóstico de la enfermedad renal crónica, y utilizar dicho modelo para responder consultas probabilísticas de relevancia clínica.
 
-El resto del artículo se organiza de la siguiente manera. La sección de Métodos describe el conjunto de datos y su preprocesamiento, el proceso de entrevistas mediante el cual se construyeron las tres estructuras candidatas, el ajuste y los criterios de evaluación de las redes, así como las dos extensiones exploradas: la incorporación de variables categóricas mediante una red condicional-gaussiana y la relajación del supuesto de linealidad mediante un modelo no paramétrico basado en splines. La sección de Resultados presenta los valores de BIC y AIC obtenidos para cada estructura, las respuestas a las consultas planteadas por las especialistas y las métricas de ajuste de ambas extensiones. La sección de Discusión interpreta estos hallazgos a la luz de la literatura clínica y estadística, incluyendo la justificación formal de las consultas que no resultaron resolubles con la mejor estructura. Finalmente, se presentan las conclusiones y las limitaciones del estudio.
+El resto del artículo se organiza de la siguiente manera. La sección de Métodos describe el conjunto de datos, su preprocesamiento y exploración inicial, el proceso de entrevistas mediante el cual se construyeron las tres estructuras candidatas, el ajuste y los criterios de evaluación de las redes, así como las dos extensiones exploradas: la incorporación de variables categóricas mediante una red condicional-gaussiana y la relajación del supuesto de linealidad mediante un modelo no paramétrico basado en splines. La sección de Resultados presenta los valores de BIC y AIC obtenidos para cada estructura, las respuestas a las consultas planteadas por las especialistas y las métricas de ajuste de ambas extensiones. La sección de Discusión interpreta estos hallazgos a la luz de la literatura clínica y estadística, prestando especial atención a la relación entre la conectividad estructural de la red y el aporte informativo efectivo de la evidencia. Finalmente, se presentan las conclusiones y las limitaciones del estudio.
 
 ## Métodos
 
@@ -70,9 +75,56 @@ El conjunto presenta una proporción considerable de valores faltantes, concentr
 
 Se optó por un análisis de casos completos, que conserva 214 de los 400 registros originales (53.5%). Esta decisión responde a que el ajuste de una red bayesiana gaussiana mediante `bn.fit` requiere observaciones completas, y a que la imputación introduciría dependencias artificiales entre variables que son precisamente el objeto de estudio del modelo: imputar el valor de un biomarcador a partir de los demás presupondría una estructura de relaciones que el análisis busca inferir. La misma submuestra se empleó para ajustar las tres estructuras, garantizando que los valores de BIC y AIC sean comparables entre modelos al estar calculados sobre el mismo tamaño muestral.
 
+### Exploración estadística inicial
+
+Antes del ajuste se examinaron la distribución marginal de cada variable y la estructura de correlaciones entre ellas, con el fin de documentar en qué medida se cumple el supuesto de normalidad sobre el que descansa la GBN.
+
+```{r eda-descriptivos}
+#| echo: false
+desc <- data.frame(
+  Variable = names(dat_cc),
+  Mediana  = round(sapply(dat_cc, median), 2),
+  RIC      = round(sapply(dat_cc, IQR), 2),
+  Mínimo   = round(sapply(dat_cc, min), 2),
+  Máximo   = round(sapply(dat_cc, max), 2),
+  Asimetría = round(sapply(dat_cc, function(x)
+                mean((x - mean(x))^3) / sd(x)^3), 2),
+  `Shapiro p` = signif(sapply(dat_cc, function(x) shapiro.test(x)$p.value), 3),
+  check.names = FALSE, row.names = NULL
+)
+kable(desc, align = c("l", rep("r", 6)), row.names = FALSE,
+      caption = "Estadísticos descriptivos y prueba de normalidad de Shapiro-Wilk para las once variables continuas (n = 214).")
+```
+
+```{r eda-histogramas}
+#| echo: false
+#| fig-height: 7
+#| fig-cap: "Distribución marginal de las once variables continuas."
+par(mfrow = c(3, 4), mar = c(4, 3.5, 2.5, 1))
+for (v in names(dat_cc)) {
+  hist(dat_cc[[v]], main = v, xlab = "", ylab = "",
+       col = "grey80", border = "white", breaks = 20)
+}
+```
+
+```{r eda-correlaciones}
+#| echo: false
+mat_cor <- round(cor(dat_cc), 2)
+kable(mat_cor,
+      caption = "Matriz de correlaciones de Pearson entre las once variables continuas.")
+```
+
+La prueba de Shapiro-Wilk rechaza la normalidad marginal en las once variables al nivel de significancia habitual. Las desviaciones son de dos tipos: por un lado, los marcadores de retención de solutos (`sc`, `bu`, `bgr`) y el conteo de leucocitos (`wc`) presentan asimetría positiva pronunciada, con distribuciones concentradas en valores bajos y colas largas hacia la derecha; por otro, los marcadores hematológicos (`hemo`, `pcv`, `rc`) y el sodio muestran asimetría negativa moderada.
+
+Esta desviación debe interpretarse con precisión. Una GBN no exige normalidad marginal de cada variable, sino normalidad *condicional* de cada nodo dados sus padres; una variable marginalmente asimétrica puede ser condicionalmente normal si su asimetría proviene precisamente de la heterogeneidad inducida por sus padres. No obstante, la magnitud de la asimetría observada en `sc` y `bu` anticipa que el ajuste gaussiano será menos preciso en las colas, lo que resulta relevante al interpretar consultas formuladas sobre umbrales clínicos que se sitúan justamente en esas regiones de la distribución.
+
+En cuanto a la estructura de dependencia, la matriz de correlaciones muestra un bloque hematológico fuertemente acoplado (`hemo`, `pcv` y `rc` con correlaciones superiores a 0.7 entre sí) y correlaciones negativas moderadas entre los marcadores de retención y ese bloque, patrón compatible con la anemia asociada al deterioro renal. El conteo de leucocitos (`wc`) presenta correlaciones débiles con el resto de variables, indicio temprano de que su integración en la red aportará poca información.
+
 ### Estructuras candidatas (DAGs)
 
-Se realizaron entrevistas con tres personas del entorno médico familiar; la mamá de Grethel, la tía de Matías Hidalgo, ambas médicas, y una prima de Daniel Rodríguez, estudiante próxima a egresar de la carrera de Medicina, a quienes se les explicó el concepto de una DAG y con quienes se construyó cada estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables: edad, presión arterial, glucosa en sangre (aleatoria), creatinina sérica, urea en sangre, sodio, potasio, hemoglobina, volumen de células empacadas y conteo de glóbulos blancos y rojos. Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Sin embargo, difieren en aspectos clave: la primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables; la segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más de estilo de vida y genética que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias; mientras que la tercera planteó la estructura más elaborada, sugiriendo que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación del riñón, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola, reflejando el carácter multifactorial de la anemia renal, y añadiendo una relación entre potasio y sodio no considerada por las otras dos especialistas.
+Se realizaron entrevistas con tres personas del área de la salud del entorno cercano de los autores: la madre de una de las integrantes y la tía de otro, ambas médicas, y una prima de un tercer integrante, estudiante próxima a egresar de la carrera de Medicina. A cada una se le explicó el concepto de DAG y con ellas se construyó su estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables continuas.
+
+Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Difieren, sin embargo, en aspectos sustantivos. La primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables. La segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más del estilo de vida y de factores genéticos que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias. La tercera planteó la estructura más elaborada: sugirió que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación renal, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola —reflejando el carácter multifactorial de la anemia renal—, y añadió una relación dirigida del potasio hacia el sodio no considerada por las otras dos.
 
 ![**DAG 1** — creatinina sérica como punto único de convergencia.](../output/figures/dag1_ckd.png)
 
@@ -100,9 +152,9 @@ Una GBN requiere que todos sus nodos sean continuos y normalmente distribuidos, 
 
 En una red CLG la coexistencia de ambos tipos de nodo no es arbitraria: las variables discretas sólo pueden ser nodos raíz o padres de nodos continuos, nunca hijos de ellos. La razón es que la distribución de un nodo continuo puede condicionarse a las categorías de un padre discreto —ajustando una distribución gaussiana distinta para cada combinación de niveles—, mientras que la operación inversa no está definida dentro de este marco. Los nodos continuos con padres discretos siguen entonces una distribución normal cuya media varía según el nivel del padre categórico.
 
-Para explorar esta extensión se amplió la mejor estructura identificada con las dos comorbilidades más relevantes para la enfermedad renal crónica y que se encuentran disponibles en el conjunto de datos: diabetes mellitus (`dm`) e hipertensión arterial (`htn`). Ambas se incorporaron como nodos raíz de tipo factor, conectados a los nodos continuos mediante cuatro arcos con sustento clínico: `dm` → `bgr`, dado que la diabetes se manifiesta directamente en niveles elevados de glucosa en sangre; `htn` → `bp`, puesto que la hipertensión se define por valores altos de presión arterial; y `dm` → `sc` junto con `htn` → `sc`, reflejando que ambas condiciones deterioran progresivamente la función renal y elevan la creatinina sérica.
+Para explorar esta extensión se amplió la mejor estructura identificada con las dos comorbilidades más relevantes para la enfermedad renal crónica disponibles en el conjunto de datos: diabetes mellitus (`dm`) e hipertensión arterial (`htn`). Ambas se incorporaron como nodos raíz de tipo factor, conectados a los nodos continuos mediante cuatro arcos con sustento clínico: `dm` → `bgr`, dado que la diabetes se manifiesta directamente en niveles elevados de glucosa en sangre; `htn` → `bp`, puesto que la hipertensión se define por valores altos de presión arterial; y `dm` → `sc` junto con `htn` → `sc`, reflejando que ambas condiciones deterioran progresivamente la función renal y elevan la creatinina sérica.
 
-El modelo mixto se ajustó con `bn.fit()` sobre 212 casos completos —dos menos que el modelo principal, debido a registros con valores faltantes en las variables categóricas— y se evaluó con los criterios `bic-cg` y `aic-cg`, las versiones para redes condicional-gaussianas de los criterios empleados anteriormente.
+El modelo mixto se ajustó con `bn.fit()` sobre 212 casos completos —dos menos que el modelo principal, debido a registros con valores faltantes en las variables categóricas— y se evaluó con los criterios `bic-cg` y `aic-cg`, las versiones para redes condicional-gaussianas de los criterios empleados anteriormente. Para que la comparación fuera válida, la GBN gaussiana pura se reajustó sobre esa misma submuestra de 212 casos, de modo que ambos modelos comparten tamaño muestral.
 
 ### Modelos no paramétricos
 
@@ -126,27 +178,31 @@ Finalmente, dado que un criterio de información agregado puede ocultar comporta
 
 ### Consultas (queries)
 
-Cada especialista entrevistada propuso dos consultas de interés clínico que pudieran resolverse mediante el modelo, para un total de seis. Las consultas se expresan en notación de probabilidad condicional de la siguiente forma:
+Cada especialista entrevistada propuso dos consultas de interés clínico que pudieran resolverse mediante el modelo, para un total de seis.
 
-**Consultas propuestas por la mamá de Grethel:**
+**Consultas propuestas por la primera especialista:**
 
 - **Q1.** Probabilidad de que la creatinina sérica supere 1.5 mg/dL en un paciente con presión arterial de 100 mmHg y glucosa en sangre de 150 mg/dL: $$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
 
 - **Q2.** Probabilidad de que la hemoglobina sea inferior a 10 g/dL, indicativa de anemia, en un paciente de 65 años: $$P(hemo < 10 \mid age = 65)$$
 
-**Consultas propuestas por la tía de Matías:**
+**Consultas propuestas por la segunda especialista:**
 
-- **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito inferior a 30%: $$P(wc > 11000 \mid pcv < 30)$$
+- **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito reducido: $$P(wc > 11000 \mid pcv = 28)$$
 
 - **Q4.** Probabilidad de que el potasio supere 5.5 mEq/L, umbral de hipercalemia, en un paciente con creatinina sérica de 2.2 mg/dL y urea en sangre de 45 mg/dL: $$P(pot > 5.5 \mid sc = 2.2,\ bu = 45)$$
 
-**Consultas propuestas por la prima de Daniel:**
+**Consultas propuestas por la tercera especialista:**
 
 - **Q5.** Probabilidad de que el hematocrito sea inferior a 33% en un paciente con urea de 60 mg/dL, sodio de 130 mEq/L y conteo de glóbulos blancos de 11,000 células/mm³: $$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
 
 - **Q6.** Probabilidad de un conteo bajo de glóbulos rojos, por debajo de 3.8 millones/µL, en un paciente cuya hemoglobina ha descendido a 9.5 g/dL: $$P(rc < 3.8 \mid hemo = 9.5)$$
 
-Las consultas se resolvieron sobre la estructura con mejor ajuste mediante inferencia aproximada por simulación, empleando la función `cpquery()` de `bnlearn`. Dado que toda la evidencia se expresa como valores puntuales sobre variables continuas, se utilizó el método de *likelihood weighting*, apropiado para este tipo de condicionamiento. Cada consulta se estimó con 10⁶ muestras y una semilla fija, de modo que los resultados sean reproducibles pese a la naturaleza estocástica del procedimiento.
+Las consultas se resolvieron sobre la estructura con mejor ajuste mediante inferencia aproximada por simulación, empleando la función `cpquery()` de `bnlearn` con el método de *likelihood weighting*. Cada consulta se estimó con $10^6$ muestras y una semilla fija, de modo que los resultados sean reproducibles pese a la naturaleza estocástica del procedimiento.
+
+El método de *likelihood weighting* requiere que la evidencia sobre nodos continuos se exprese como valores puntuales y no como intervalos. La consulta Q3 fue formulada originalmente por la especialista en términos de un hematocrito inferior a 30%; para su resolución se adoptó $pcv = 28$ como valor puntual representativo de esa condición. Esta sustitución es una aproximación operativa que debe tenerse presente al interpretar el resultado correspondiente.
+
+Antes de resolver las consultas se verificó que en todos los casos la evidencia estuviera d-conectada con la variable objetivo dentro de la DAG 1, condición necesaria para que el condicionamiento resulte informativo. Adicionalmente, cada probabilidad condicional se contrastó con la probabilidad marginal del mismo evento, calculada sin evidencia alguna. Esta comparación permite cuantificar cuánto desplaza efectivamente la evidencia a la creencia sobre el evento, un aspecto que la conectividad estructural por sí sola no determina.
 
 ## Resultados
 
@@ -170,42 +226,42 @@ kable(tabla_dags_fmt,
       caption = "BIC y AIC de las tres GBN ajustadas sobre los mismos 214 casos completos.")
 ```
 
-La DAG 1 obtuvo el valor más alto tanto de BIC (-8799.90) como de AIC (-8744.37), seguida por la DAG 2 (BIC -8805.68, AIC -8751.82) y, en último lugar, la DAG 3 (BIC -8814.43, AIC -8755.52). La diferencia entre la mejor y la peor estructura es de 14.53 puntos en BIC y de 11.15 puntos en AIC.
+La DAG 1 obtuvo el valor más alto tanto de BIC ($-8799.90$) como de AIC ($-8744.37$), seguida por la DAG 2 (BIC $-8805.68$, AIC $-8751.82$) y, en último lugar, la DAG 3 (BIC $-8814.43$, AIC $-8755.52$). La diferencia entre la mejor y la peor estructura es de 14.53 puntos en BIC y de 11.15 puntos en AIC. El ordenamiento es inverso al número de arcos: la DAG 3, con 13 arcos, ocupa el último lugar, mientras que la DAG 1, con 11, encabeza ambos criterios.
 
 ### Resultados de las consultas
 
 ```{r queries-results}
 #| echo: false
-# Enunciados en notacion LaTeX para renderizado matematico
 enunciados_latex <- c(
   "$P(sc > 1.5 \\mid bp = 100,\\ bgr = 150)$",
   "$P(hemo < 10 \\mid age = 65)$",
-  "$P(wc > 11000 \\mid pcv < 30)$",
+  "$P(wc > 11000 \\mid pcv = 28)$",
   "$P(pot > 5.5 \\mid sc = 2.2,\\ bu = 45)$",
   "$P(pcv < 33 \\mid bu = 60,\\ sod = 130,\\ wc = 11000)$",
   "$P(rc < 3.8 \\mid hemo = 9.5)$"
 )
 
 tabla_q <- data.frame(
-  Consulta  = paste0("Q", 1:6),
-  Expresion = enunciados_latex,
-  Resultado = sapply(resultados_q, function(x)
-                ifelse(is.na(x$resultado),
-                       "—",
-                       sprintf("%.4f", x$resultado))),
-  Estado    = sapply(resultados_q, function(x)
-                ifelse(x$respondible, "Resuelta", "No resoluble")),
-  row.names = NULL
+  Consulta    = paste0("Q", 1:6),
+  Expresion   = enunciados_latex,
+  Marginal    = sprintf("%.4f", comp_marg$Marginal),
+  Condicional = sprintf("%.4f", comp_marg$Condicional),
+  Desplaza    = sprintf("%+.4f", comp_marg$Desplaza),
+  row.names   = NULL
 )
 
 kable(tabla_q,
-      col.names = c("Consulta", "Expresión", "Resultado", "Estado"),
-      align = c("c", "l", "r", "c"),
+      col.names = c("Consulta", "Expresión", "Marginal", "Condicional", "Desplazamiento"),
+      align = c("c", "l", "r", "r", "r"),
       escape = FALSE,
-      caption = "Resultados de las seis consultas sobre la mejor estructura (DAG 1).")
+      caption = "Resultados de las seis consultas sobre la DAG 1, contrastados con la probabilidad marginal del evento. El desplazamiento cuantifica el aporte informativo de la evidencia.")
 ```
 
-De las seis consultas planteadas, cuatro se resolvieron sobre la DAG 1: Q1 (0.7749), Q2 (0.1395), Q4 (0.0601) y Q6 (0.5483). Las consultas Q3 y Q5 no resultaron respondibles: en ambos casos la evidencia proporcionada no se conecta estructuralmente con la variable objetivo dentro de la DAG 1. La justificación formal por d-separación de estos dos casos se desarrolla en la Discusión.
+Las seis consultas se resolvieron sobre la DAG 1. Los resultados son: Q1 $= 0.7749$, Q2 $= 0.1395$, Q3 $= 0.2180$, Q4 $= 0.0601$, Q5 $= 0.2347$ y Q6 $= 0.5492$.
+
+El desplazamiento respecto a la probabilidad marginal varía de manera pronunciada entre consultas. Q6 registra el mayor desplazamiento ($+0.3715$, de $0.1777$ a $0.5492$), seguida de Q1 ($+0.1707$, de $0.6042$ a $0.7749$). En el extremo opuesto, Q2 ($+0.0077$), Q3 ($+0.0177$), Q5 ($+0.0272$) y Q4 ($-0.0052$) presentan desplazamientos inferiores a tres centésimas.
+
+Para Q4 se calculó adicionalmente la probabilidad condicionando únicamente en la creatinina sérica, obteniendo $P(pot > 5.5 \mid sc = 2.2) = 0.0601$, valor idéntico al obtenido con la evidencia completa.
 
 ### Modelo mixto con variables categóricas
 
@@ -221,12 +277,14 @@ kable(tabla_mixto_fmt,
       col.names = c("Modelo", "Nodos", "Arcos", "BIC", "AIC"),
       align = c("l", "c", "c", "r", "r"),
       escape = FALSE,
-      caption = "Comparación entre la GBN gaussiana pura y la red condicional-gaussiana con diabetes e hipertensión.")
+      caption = "Comparación entre la GBN gaussiana pura y la red condicional-gaussiana, ambas ajustadas sobre los mismos 212 casos completos.")
 ```
 
 ![**DAG mixta** — DAG 1 extendida con los nodos categóricos de diabetes e hipertensión.](../output/figures/dag_mixto.png)
 
-Sobre el modelo mixto, la probabilidad de creatinina elevada asciende a $P(sc > 1.5 \mid dm = \text{yes},\ htn = \text{yes}) = 0.7835$ en un paciente con ambas comorbilidades, frente a $P(sc > 1.5 \mid dm = \text{no},\ htn = \text{no}) = 0.4070$ en un paciente sin ninguna.
+Sobre los mismos 212 casos, la GBN gaussiana pura obtuvo BIC $-8724.64$ y AIC $-8669.26$, frente a BIC $-8801.21$ y AIC $-8712.26$ de la red condicional-gaussiana. La incorporación de las dos comorbilidades deterioró el BIC en 76.57 puntos y el AIC en 43.00 puntos.
+
+En cuanto a la inferencia, la probabilidad de creatinina elevada asciende a $P(sc > 1.5 \mid dm = \text{sí},\ htn = \text{sí}) = 0.7835$ en un paciente con ambas comorbilidades, frente a $P(sc > 1.5 \mid dm = \text{no},\ htn = \text{no}) = 0.4070$ en un paciente sin ninguna.
 
 ### Modelos no paramétricos
 
@@ -263,87 +321,100 @@ kable(tabla_cv,
       col.names = c("Nodo", "RMSE lineal", "RMSE GAM", "Mejora (%)"),
       align = c("l", "r", "r", "r"),
       row.names = FALSE,
-      caption = "Error de predicción fuera de muestra por nodo, validación cruzada de 10 particiones.")
+      caption = "Error de predicción fuera de muestra por nodo, validación cruzada de diez particiones.")
 ```
 
 ![Efectos parciales estimados para cada término suave del modelo no paramétrico.](../output/figures/efectos_parciales_gam.png)
 
-El modelo no paramétrico obtuvo un BIC de -8740.56 frente a -8799.85 del modelo lineal, una mejora de 59.29 puntos, y un AIC de -8606.15 frente a -8744.31, una mejora de 138.16 puntos.
+El modelo no paramétrico obtuvo un BIC de $-8740.56$ frente a $-8799.85$ del modelo lineal, una mejora de 59.29 puntos, y un AIC de $-8606.15$ frente a $-8744.31$, una mejora de 138.16 puntos.
 
-Todos los términos suaves resultaron significativos (p \< 0.05), con la única excepción de s(age) en el nodo bp (p = 0.1949). Los grados de libertad efectivos oscilan entre 1.636, para bp \~ age, y 8.384, para bu \~ sc.
+Todos los términos suaves resultaron significativos ($p < 0.05$), con la única excepción de $s(age)$ en el nodo `bp` ($p = 0.1949$). Los grados de libertad efectivos oscilan entre 1.636, para `bp` ~ `age`, y 8.384, para `bu` ~ `sc`.
 
-La descomposición del BIC por distribución local muestra que el término suave mejora el ajuste en 5 de los 10 nodos con padres: pcv (+29.76), hemo (+24.34) y rc (+7.98) concentran la mayor parte de la ganancia, mientras que pot (-4.49), bgr (-2.87), bp (-2.02), wc (-0.98) y sc (-0.55) registran deterioro.
+La descomposición del BIC por distribución local muestra que el término suave mejora el ajuste en 5 de los 10 nodos con padres. Los nodos que mejoran suman 70.20 puntos —`pcv` ($+29.76$), `hemo` ($+24.34$), `rc` ($+7.98$), `bu` ($+7.38$) y `sod` ($+0.74$)— mientras que los cinco restantes lo deterioran en 10.91 puntos —`pot` ($-4.49$), `bgr` ($-2.87$), `bp` ($-2.02$), `wc` ($-0.98$) y `sc` ($-0.55$)—, resultando en la mejora neta de 59.29 puntos.
 
-En validación cruzada, el modelo no paramétrico redujo el error de predicción fuera de muestra en 6 de los 10 nodos, con las mayores reducciones en pcv (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos de error en sc (26.9%) y bu (6.2%).
+En validación cruzada, el modelo no paramétrico redujo el error de predicción fuera de muestra en 6 de los 10 nodos, con las mayores reducciones en `pcv` (17.4%), `hemo` (13.1%) y `rc` (6.8%), y los mayores incrementos de error en `sc` (26.9%) y `bu` (6.2%).
 
 ## Discusión
 
 ### Comparación de estructuras
 
-La evaluación cuantitativa situó a la **DAG 1** como la estructura con mejor ajuste global en ambos criterios de información (BIC: $-8799.90$, AIC: $-8744.37$). La diferencia de $14.53$ puntos en BIC y $11.15$ en AIC respecto a la peor estructura (**DAG 3**) evidencia que una mayor densidad de arcos no se traduce necesariamente en una representación más fiel del fenómeno subyacente. La **DAG 3**, a pesar de incorporar $13$ arcos reflejando la visión de una anemia renal multifactorial propuesta por la tercera especialista, fue severamente penalizada por el criterio BIC debido al costo paramétrico de sus dependencias adicionales.
+La evaluación cuantitativa situó a la **DAG 1** como la estructura con mejor ajuste en ambos criterios de información. La diferencia de 14.53 puntos en BIC respecto a la **DAG 3** evidencia que una mayor densidad de arcos no se traduce necesariamente en una representación más fiel del fenómeno subyacente: la DAG 3, pese a incorporar 13 arcos que reflejan una concepción multifactorial de la anemia renal, fue penalizada por el costo paramétrico de sus dependencias adicionales sin obtener a cambio una ganancia proporcional en verosimilitud.
 
-El elemento arquitectónico determinante en el desempeño de la **DAG 1** es la posición de la creatinina sérica (`sc`) como punto único de convergencia. Desde la perspectiva de la fisiopatología renal, esta topología resulta sumamente coherente. La creatinina sérica es el biomarcador clínico primario empleado para estimar la tasa de filtración glomerular (eGFR); de este modo, factores de riesgo primarios como la edad, la presión arterial y los niveles de glucosa convergen en el deterioro de la capacidad de filtrado del riñón. A su vez, el daño renal resultante —reflejado centralmente en la elevación de creatinina— desencadena las complicaciones sistémicas subsiguientes, tales como la retención de solutos nitrogenados (urea) y la falla en la síntesis renal de eritropoyetina, que impacta directamente sobre el eje hematológico. La **DAG 1** logra capturar esta cascada fisiológica con una parsimonia estructural que maximiza la verosimilitud ajustada.
+Conviene precisar el alcance de esta conclusión. Las tres estructuras difieren en pocos arcos y las diferencias de BIC entre ellas son modestas en relación con la magnitud absoluta del criterio. El resultado indica una preferencia por la DAG 1 dentro del conjunto evaluado, no que esa estructura sea la representación correcta del proceso fisiopatológico: existe un número enorme de DAGs posibles sobre once variables, y sólo se compararon tres.
+
+El elemento arquitectónico determinante en el desempeño de la DAG 1 es la posición de la creatinina sérica (`sc`) como punto único de convergencia, topología coherente con la fisiopatología renal. La creatinina sérica es el biomarcador primario empleado para estimar la tasa de filtración glomerular, de modo que factores de riesgo como la edad, la presión arterial y la glucosa convergen en el deterioro de la capacidad de filtrado. A su vez, ese daño desencadena las complicaciones sistémicas subsiguientes: la retención de solutos nitrogenados y la falla en la síntesis renal de eritropoyetina, que impacta sobre el eje hematológico. La DAG 1 captura esta cascada con una parsimonia que los criterios de información recompensan.
+
+Un matiz relevante afecta a uno de los arcos de esta estructura. El arco `sc` → `wc`, propuesto por la primera especialista, no alcanza significancia estadística en la muestra ($p = 0.246$, $R^2 = 0.006$), lo que concuerda con las correlaciones débiles del conteo de leucocitos observadas en la exploración inicial. La leucocitosis en la ERC responde más a procesos inflamatorios o infecciosos concurrentes que al grado de deterioro del filtrado, por lo que su dependencia directa de la creatinina no encuentra respaldo empírico en estos datos.
 
 ### Interpretación de las consultas
 
-Las consultas probabilísticas resueltas sobre la **DAG 1** ofrecen estimaciones numéricas congruentes con el comportamiento clínico de la enfermedad renal crónica:
+Las seis consultas resultaron resolubles sobre la DAG 1: en todos los casos existe al menos un camino activo entre la evidencia y la variable objetivo. Sin embargo, los resultados revelan que la d-conexión estructural es condición necesaria pero no suficiente para que la evidencia sea informativa. El contraste sistemático entre cada probabilidad condicional y su marginal muestra dos regímenes claramente diferenciados.
 
-- **Q1 (**$P(sc > 1.5 \mid bp = 100, bgr = 150) = 0.7749$): En un paciente con presión arterial dentro del rango normal pero con glucosa elevada ($150\text{ mg/dL}$), la probabilidad de presentar creatinina sérica alterada supera el $77\%$. Esto ilustra la nefropatía diabética temprana: la hiperglucemia crónica induce hiperfiltración e hipertrofia glomerular, produciendo daño funcional progresivo aun en ausencia de hipertensión concomitante.
-- **Q2 (**$P(hemo < 10 \mid age = 65) = 0.1395$): La probabilidad de anemia en un individuo de $65$ años sin evidencia directa de daño renal es moderadamente baja ($13.95\%$). Esto concuerda con la práctica clínica: si bien el envejecimiento condiciona una pérdida fisiológica gradual de nefronas, la anemia renal grave no se manifiesta de forma senil aislada, sino como consecuencia directa de un compromiso sostenido en la función renal.
-- **Q4 (**$P(pot > 5.5 \mid sc = 2.2, bu = 45) = 0.0601$): La probabilidad de hipercalemia franca ($pot > 5.5\text{ mEq/L}$) en presencia de creatinina moderadamente elevada ($2.2\text{ mg/dL}$) y urea normal ($45\text{ mg/dL}$) resulta baja ($6.01\%$). En estadios moderados de ERC, los mecanismos compensatorios de secreción de potasio en el túbulo colector distal mediados por aldosterona suelen preservar la normocalemia, de modo que la hipercalemia grave se restringe a estadios terminales o a fallas agudas sobreañadidas. Cabe señalar que, dentro de la **DAG 1**, condicionar en `sc` d-separa a `bu` de `pot` al ser ambos hijos de un padre común, por lo que la evidencia en urea resulta estructuralmente redundante dada la cifra de creatinina.
-- **Q6 (**$P(rc < 3.8 \mid hemo = 9.5) = 0.5483$): Ante una caída de hemoglobina a $9.5\text{ g/dL}$, la probabilidad de registrar un conteo disminuido de glóbulos rojos supera el $54\%$. El resultado refleja el acoplamiento estrecho del eje hematológico posterior en la DAG (`sc` $\rightarrow$ `hemo` $\rightarrow$ `pcv` $\rightarrow$ `rc`).
+**Consultas con evidencia informativa.** Q6 y Q1 concentran los mayores desplazamientos, y en ambas la evidencia recae sobre padres directos del nodo objetivo:
 
-#### Justificación formal de las consultas no resolubles
+- **Q6** ($P(rc < 3.8 \mid hemo = 9.5) = 0.5492$, marginal $0.1777$): ante una caída de hemoglobina a 9.5 g/dL, la probabilidad de un conteo disminuido de glóbulos rojos se triplica. El desplazamiento de $+0.3715$ es el mayor de las seis consultas y refleja el acoplamiento estrecho entre hemoglobina y masa eritrocitaria, cuya correlación en la muestra supera 0.7. Clínicamente el resultado es esperable: ambos parámetros miden facetas del mismo fenómeno hematológico.
+- **Q1** ($P(sc > 1.5 \mid bp = 100,\ bgr = 150) = 0.7749$, marginal $0.6042$): la probabilidad de creatinina alterada supera el 77% en un paciente con presión arterial de 100 mmHg y glucosa de 150 mg/dL. Cabe precisar la lectura clínica de esta cifra: en este conjunto de datos la presión arterial se registra con una mediana de 80 mmHg y valores concentrados entre 60 y 80, lo que sugiere que corresponde a presión diastólica. Bajo esa lectura, 100 mmHg constituye hipertensión y no un valor normal, de modo que la consulta describe a un paciente con ambos factores de riesgo simultáneamente elevados —hipertensión e hiperglucemia—, escenario en el que una probabilidad elevada de daño renal resulta consistente con la literatura.
 
-Las consultas **Q3** ($P(wc > 11000 \mid pcv < 30)$) y **Q5** ($P(pcv < 33 \mid bu = 60, sod = 130, wc = 11000)$) no resultaron resolubles en la **DAG 1**:
+**Consultas con evidencia poco informativa.** Q2, Q3, Q4 y Q5 desplazan la probabilidad en menos de tres centésimas, por razones distintas en cada caso:
 
-1.  **En Q3:** dentro de la **DAG 1**, el nodo `wc` es hijo directo de `sc`, mientras que `pcv` es hijo de `hemo`, que a su vez desciende de `sc`. La única vía que conecta a `wc` con `pcv` pasa por el nodo ancestro `sc`. Al no condicionar en `sc`, la trayectoria entre `wc` y `pcv` contiene una estructura divergente en `sc` ($wc \leftarrow sc \rightarrow hemo \rightarrow pcv$), la cual queda bloqueada si no se observa la variable intermedia o si el flujo de evidencia no puede activarse. En consecuencia, ambas variables resultan d-separadas ($\mathbf{I}(wc, pcv)$) bajo la evidencia dada.
-2.  **En Q5:** los nodos `bu`, `sod` y `wc` son nodos hermanos (todos descendientes directos de `sc`), mientras que `pcv` es descendiente de `hemo` (que también desciende de `sc`). Sin condicionar sobre `sc` o `hemo`, la información proporcionada por los biomarcadores `bu`, `sod` y `wc` no puede fluir hacia el nodo `pcv`.
+- **Q4** ($P(pot > 5.5 \mid sc = 2.2,\ bu = 45) = 0.0601$, marginal $0.0652$): pese a que `sc` es padre directo de `pot`, la relación entre ambos es débil en la muestra ($R^2 = 0.046$), de modo que conocer la creatinina apenas modifica la creencia sobre el potasio. El resultado clínico —probabilidad baja de hipercalemia franca— es congruente con que en estadios moderados de ERC los mecanismos compensatorios de secreción tubular preservan la normocalemia, reservando la hipercalemia grave para estadios avanzados. Adicionalmente, al condicionar únicamente en `sc` se obtiene exactamente el mismo valor ($0.0601$), confirmando empíricamente que la evidencia sobre `bu` es redundante: ambos son hijos de `sc` y condicionar en su padre común los d-separa entre sí.
+- **Q3** ($P(wc > 11000 \mid pcv = 28) = 0.2180$, marginal $0.2003$): la evidencia sobre el hematocrito alcanza al conteo de leucocitos por la trayectoria $wc \leftarrow sc \rightarrow hemo \rightarrow pcv$, activa al no estar condicionados los nodos intermedios. El desplazamiento es pequeño porque la información debe atravesar tres arcos y, sobre todo, porque el arco terminal `sc` → `wc` carece de fuerza estadística según se discutió arriba.
+- **Q5** ($P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000) = 0.2347$, marginal $0.2075$): la evidencia sobre tres hermanos de `hemo` informa indirectamente sobre `pcv` a través del ancestro común `sc`. El desplazamiento, aunque modesto, es el mayor de este grupo, lo que resulta razonable al provenir de tres fuentes de evidencia simultáneas.
+- **Q2** ($P(hemo < 10 \mid age = 65) = 0.1395$, marginal $0.1318$): la edad influye sobre la hemoglobina únicamente a través de una cadena de tres arcos que pasa por la presión arterial o la glucosa y luego por la creatinina. El desplazamiento casi nulo tiene una lectura clínica directa: el envejecimiento por sí solo, sin evidencia de deterioro renal, no predice anemia. La anemia de la ERC es consecuencia del daño renal establecido y no del envejecimiento aislado.
 
-*Nota metodológica:* Aunque algoritmos de simulación como `cpquery()` pueden arrojar un valor numérico muestral ante cualquier par de variables, cuando la evidencia está d-separada de la variable objetivo, dicho cálculo aproxima la probabilidad marginal $P(Y)$ y no un verdadero condicionamiento condicional $P(Y \mid X)$. Presentar dichos valores como respuestas informadas constituiría un error conceptual.
+**Implicación metodológica.** Este patrón ilustra un fenómeno general en las redes bayesianas: la influencia informativa se atenúa con la distancia en el grafo y con la debilidad de los arcos intermedios. Una consulta puede ser formalmente resoluble y aun así arrojar una respuesta prácticamente idéntica a la creencia previa. Reportar únicamente la probabilidad condicional, sin su marginal de referencia, ocultaría esta distinción y podría sugerir que la evidencia resultó relevante cuando no lo fue. Por ello se reportan ambas cantidades de forma sistemática.
 
 ### Variables categóricas
 
-La incorporación de las comorbilidades discretas `dm` (diabetes) e `htn` (hipertensión) en la red condicional-gaussiana (CLG) no tradujo una mejora en los scores de información agregados (BIC $-8840.12$ frente a $-8799.90$ de la GBN pura). La razón estriba en la penalización paramétrica: en una red CLG, condicionar un nodo continuo sobre padres discretos exige estimar parámetros gaussianos independientes para cada combinación categórica, incrementando significativamente la complejidad del modelo.
+La incorporación de las comorbilidades `dm` (diabetes) e `htn` (hipertensión) en la red condicional-gaussiana deterioró ambos criterios de información: el BIC descendió de $-8724.64$ a $-8801.21$ sobre la misma submuestra de 212 casos. La explicación más directa es el costo paramétrico: en una red CLG, condicionar un nodo continuo sobre padres discretos exige estimar parámetros gaussianos independientes para cada combinación de niveles, de modo que `sc`, con dos padres categóricos binarios, multiplica por cuatro sus parámetros de media.
 
-No obstante, la inferencia probabilística sobre la red CLG demostró una elevada utilidad clínica: la probabilidad de presentar creatinina elevada ($sc > 1.5\text{ mg/dL}$) casi se duplica, pasando del $40.70\%$ en pacientes sin comorbilidades ($dm = \text{no}, htn = \text{no}$) al $78.35\%$ en pacientes con diagnóstico concurrente de diabetes e hipertensión ($dm = \text{yes}, htn = \text{yes}$). Esto resalta la tensión entre la optimización estadística por parsimonia (BIC/AIC) y la capacidad explicativa médica, donde la inclusión de variables de tamizaje clínico común aporta un valor pragmático sustancial a costa de una penalización paramétrica formal.
+Conviene no sobreinterpretar este resultado. El deterioro del criterio es compatible con dos explicaciones que este análisis no distingue: que la penalización paramétrica supere una ganancia real en verosimilitud, o que `dm` y `htn` aporten poca información adicional una vez que `bgr` y `bp` —sus manifestaciones cuantitativas directas— ya forman parte de la red. Esta segunda posibilidad resulta plausible precisamente por la construcción de los arcos: la glucosa en sangre es la expresión medible de la diabetes, y la presión arterial lo es de la hipertensión, de modo que las variables categóricas podrían ser en buena medida redundantes respecto a las continuas ya presentes.
+
+No obstante, la inferencia sobre la red CLG demostró utilidad clínica. La probabilidad de creatinina elevada casi se duplica, pasando del 40.70% en pacientes sin comorbilidades al 78.35% en pacientes con diagnóstico concurrente de ambas. Esta capacidad de estratificación es valiosa en la práctica, donde el diagnóstico de diabetes o hipertensión suele estar disponible antes que un panel bioquímico completo. El caso ilustra la tensión entre la optimización estadística por parsimonia y la utilidad operativa: un modelo puede empeorar en criterios de información y seguir siendo preferible para un uso clínico concreto.
 
 ### Modelos no paramétricos
 
-La relajación del supuesto de linealidad mediante splines en un modelo aditivo generalizado (GAM) produjo una mejora drástica en los criterios globales, ganando $59.29$ puntos de BIC y $138.16$ puntos de AIC frente a la GBN lineal. Sin embargo, la descomposición por distribución local revela una marcada heterogeneidad:
+La relajación del supuesto de linealidad mediante splines mejoró los criterios agregados en 59.29 puntos de BIC y 138.16 de AIC. La descomposición por distribución local revela, sin embargo, que esa mejora no es homogénea y que leerla como una superioridad global del enfoque flexible sería incorrecto.
 
-- **No linealidad genuina:** Más del $91\%$ de la ganancia en BIC ($54.10$ de $59.29$ puntos) se concentró exclusivamente en el eje hematológico: `pcv ~ hemo` ($+29.76$) y `hemo ~ sc` ($+24.34$). La validación cruzada confirmó que esta ganancia es real y no fruto del sobreajuste, reduciendo el error fuera de muestra en un $17.4\%$ para `pcv`, $13.1\%$ para `hemo` y $6.8\%$ para `rc`. Desde la perspectiva clínica, esto se explica porque la respuesta hematopoyética a la pérdida de función renal exhibe un efecto de umbral: los niveles de hemoglobina se mantienen estables en fases iniciales y caen aceleradamente cuando el filtrado renal se deteriora de forma severa.
-- **Sobreajuste por asimetría:** En $5$ de los $10$ nodos con padres, el término suave empeoró el BIC. El caso más agudo se observó en `sc ~ bp + bgr`, donde la validación cruzada registró un error de predicción fuera de muestra $26.9\%$ mayor en el modelo GAM que en el lineal. Esto responde a la distribución de la creatinina sérica, fuertemente sesgada a la derecha (mediana $1.15\text{ mg/dL}$ frente a un máximo de $15.2\text{ mg/dL}$); al haber pocas observaciones en la cola superior, los splines intentaron ajustar valores atípicos en lugar de una tendencia biológica subyacente.
-- **Comportamiento de la presión arterial:** El término $s(age)$ sobre `bp` fue el único no significativo ($edf = 1.636, p = 0.1949$), demostrando que la relación entre edad y presión arterial es esencialmente lineal en la cohorte estudiada, condicionada además por la baja resolución de la variable (registrada en múltiplos de $10$).
+**No linealidad genuina en el eje hematológico.** Los nodos `pcv` ($+29.76$) y `hemo` ($+24.34$) aportan por sí solos 54.10 de los 70.20 puntos de ganancia bruta —el 77% de las mejoras, aunque conviene evitar expresarlo como porcentaje de la mejora neta, dado que cinco nodos aportan valores negativos—. La validación cruzada confirma que la ganancia es real y no atribuible al sobreajuste: el error fuera de muestra se reduce un 17.4% en `pcv`, un 13.1% en `hemo` y un 6.8% en `rc`. Una lectura clínica plausible es que la respuesta hematopoyética a la pérdida de función renal exhibe un efecto de umbral, manteniéndose estable en fases iniciales y cayendo aceleradamente cuando el filtrado se deteriora de forma severa, comportamiento que una relación lineal no puede representar.
 
-Metodológicamente, estos hallazgos indican que la arquitectura óptima no es puramente flexible ni puramente lineal, sino mixta: el uso de splines debe restringirse a las relaciones del eje hematológico, preservando la formulación lineal gaussiana en las dependencias metabólicas y vasculares.
+**Sobreajuste inducido por asimetría.** En cinco nodos el término suave deteriora el BIC, y el caso más agudo aparece en `sc` ~ `bp` + `bgr`, donde la validación cruzada registra un error de predicción 26.9% mayor que el del modelo lineal. La explicación se encuentra en la distribución de la creatinina sérica documentada en la exploración inicial: fuertemente sesgada a la derecha, con mediana de 1.15 mg/dL frente a un máximo de 15.2 y escasas observaciones en la cola superior. El spline ajusta esos pocos valores extremos en lugar de una tendencia subyacente, y el resultado no generaliza.
+
+**El caso ambiguo de `bu`.** Este nodo mejora el BIC ($+7.38$) pero empeora en validación cruzada ($-6.2\%$), y presenta el mayor número de grados de libertad efectivos de todo el modelo ($edf = 8.384$). La combinación sugiere que el spline captura estructura dentro de muestra que no se sostiene fuera de ella. El caso resulta ilustrativo: si sólo se hubiera consultado el criterio de información, la conclusión habría sido que la relación entre creatinina y urea es marcadamente no lineal, cuando la evidencia predictiva apunta en dirección contraria.
+
+**Límite impuesto por el dato.** El término $s(age)$ sobre `bp` fue el único no significativo ($edf = 1.636$, $p = 0.1949$), indicando que la relación entre edad y presión arterial es esencialmente lineal en esta cohorte. A ello se suma la baja resolución de la variable, registrada en múltiplos de diez y con sólo nueve valores distintos: ninguna técnica flexible puede recuperar estructura que la medición no registra.
+
+En conjunto, estos hallazgos indican que la arquitectura más adecuada no es puramente flexible ni puramente lineal, sino mixta: el uso de splines encuentra justificación en las relaciones del eje hematológico y no en las dependencias metabólicas y vasculares.
 
 ### Articulación de los hallazgos
 
-Las dos extensiones exploradas apuntan a conclusiones complementarias sobre el modelado de la ERC. Por un lado, la inclusión de comorbilidades categóricas (`dm`, `htn`) no mejoró los scores de información debido a la penalización paramétrica de las redes condicional-gaussianas, pero ofreció una potente estratificación del riesgo clínico. Por otro lado, la flexibilización funcional no paramétrica mediante splines sí demostró una superioridad estadística agregada sustancial.
+Las dos extensiones exploradas apuntan en direcciones distintas y su contraste resulta informativo. La incorporación de comorbilidades categóricas no mejoró los criterios de información, aunque ofreció una estratificación clínica del riesgo de valor práctico. La flexibilización de la forma funcional sí mejoró el ajuste agregado, si bien de manera concentrada en una región específica de la red.
 
-Esto indica que el cuello de botella principal de la GBN estándar no residía en la omisión de variables causales primarias, sino en la imposición de una relación estrictamente lineal en la cascada de complicaciones hematológicas.
+La lectura conjunta sugiere que la principal restricción de la GBN sobre estos datos no residía en la omisión de variables causales —añadir diabetes e hipertensión no aportó ajuste— sino en la imposición de linealidad sobre la cascada de complicaciones hematológicas. Esta interpretación es coherente con la exploración inicial, donde el bloque hematológico mostraba las correlaciones más fuertes de todo el conjunto, y con el análisis de consultas, donde precisamente los desplazamientos probabilísticos más pronunciados se produjeron en ese mismo eje.
 
 ### Limitaciones
 
-El estudio presenta cuatro limitaciones principales que deben considerarse al interpretar los resultados:
+El estudio presenta cinco limitaciones principales que deben considerarse al interpretar los resultados:
 
-1.  **Pérdida de datos por casos completos:** La restricción a registros sin valores faltantes redujo la muestra de $400$ a $214$ casos (una pérdida del $46.5\%$), concentrada en variables hematológicas y electrolitos. Si el patrón de ausencia no cumple el supuesto de faltantes completamente al azar (MCAR), el análisis podría estar sujeto a sesgo de selección.
-2.  **Tamaño muestral:** Un total de $214$ observaciones resulta moderado para la estimación simultánea de $11$ distribuciones locales continuas y sus parámetros de varianza.
-3.  **Construcción de estructuras:** Los DAGs candidatas derivan de entrevistas individuales con tres profesionales y estudiantes del área de la salud del entorno cercano de los autores, en lugar de una metodología formal de consenso (como un panel Delphi) con nefrólogos especialistas.
-4.  **Validez externa:** El conjunto de datos original no especifica el origen geográfico ni la composición étnica exacta de la población muestreada, restringiendo la extrapolación de los umbrales numéricos a otros entornos clínicos.
+1. **Pérdida de datos por casos completos.** La restricción a registros sin valores faltantes redujo la muestra de 400 a 214 casos, una pérdida del 46.5% concentrada en variables hematológicas y electrolitos. Si el patrón de ausencia no cumple el supuesto de faltantes completamente al azar (MCAR), el análisis podría estar sujeto a sesgo de selección. Dado que las variables con mayor proporción de faltantes son precisamente las del eje hematológico, sobre el que descansan varias de las conclusiones, esta limitación merece atención particular.
+2. **Tamaño muestral.** Un total de 214 observaciones resulta moderado para la estimación simultánea de once distribuciones locales continuas y sus parámetros de varianza.
+3. **Incumplimiento del supuesto de normalidad.** Las once variables rechazan la normalidad marginal, con asimetrías pronunciadas en los marcadores de retención. Aunque la GBN exige normalidad condicional y no marginal, la magnitud de las desviaciones observadas sugiere que el ajuste es menos preciso en las colas de las distribuciones, justamente donde se sitúan los umbrales clínicos de varias consultas.
+4. **Construcción de las estructuras.** Las DAGs candidatas derivan de entrevistas individuales con tres personas del área de la salud del entorno cercano de los autores, en lugar de una metodología formal de consenso con nefrólogos especialistas. Sólo se compararon tres estructuras de un espacio combinatorio muy amplio.
+5. **Validez externa.** El conjunto de datos no especifica el origen geográfico ni la composición de la población muestreada, lo que restringe la extrapolación de los umbrales numéricos a otros entornos clínicos.
 
 ## Conclusiones
 
+**Selección de la estructura.** La red bayesiana gaussiana construida sobre la DAG 1 —que ubica a la creatinina sérica como punto de convergencia entre los factores de riesgo iniciales y las complicaciones secundarias— obtuvo el mejor ajuste de las tres estructuras evaluadas en ambos criterios de información (BIC $-8799.90$, AIC $-8744.37$). El resultado muestra que una mayor densidad de arcos no garantiza mejor representación: la estructura con más dependencias fue la peor evaluada.
 
-* **Selección de la arquitectura óptima:** La red bayesiana gaussiana estructurada bajo la **DAG 1** —que ubica a la creatinina sérica como el punto central de convergencia entre los factores de riesgo iniciales (edad, presión arterial, glucosa) y las complicaciones secundarias (eje hematológico)— obtuvo el mejor ajuste estadístico (BIC: $-8799.90$, AIC: $-8744.37$). Esto demuestra que la parsimonia estructural, alineada con la fisiopatología renal, supera en precisión a modelos de mayor densidad de arcos.
-* **Capacidad de inferencia clínica bajo incertidumbre:** El modelo probabilístico respondió de forma robusta a consultas clínicas relevantes, determinando una probabilidad del $77.49\%$ de creatinina elevada ante niveles altos de glucosa ($150\text{ mg/dL}$). Asimismo, la identificación formal de consultas no resolubles (Q3 y Q5) por d-separación valida la capacidad de las GBN para evitar estimaciones espurias entre variables estructuralmente independientes.
-* **Estratificación del riesgo mediante variables categóricas:** Aunque la incorporación de diabetes e hipertensión en la red condicional-gaussiana (CLG) conllevó una penalización en BIC/AIC por el incremento de parámetros, demostró una alta utilidad clínica al estratificar el riesgo: la probabilidad de presentar daño renal ($sc > 1.5\text{ mg/dL}$) aumentó del $40.70\%$ en ausencia de comorbilidades al $78.35\%$ en presencia de ambas.
-* **Superioridad del modelado híbrido (lineal-flexible):** La relajación de la linealidad mediante splines (GAM) incrementó el BIC global en $59.29$ puntos, impulsada en más del $91\%$ por el comportamiento no lineal del eje hematológico (`hemo` y `pcv`). No obstante, la degradación predictiva en nodos con distribuciones fuertemente sesgadas (`sc`) indica que la arquitectura idónea para el diagnóstico de la ERC es de naturaleza híbrida: relaciones flexibles para la respuesta hematológica a la anemia y relaciones lineales para los marcadores metabólicos y vasculares.
+**Inferencia probabilística y aporte informativo de la evidencia.** Las seis consultas planteadas por las especialistas resultaron resolubles sobre la mejor estructura. El contraste sistemático de cada probabilidad condicional con su marginal reveló que la relevancia de la evidencia varía en un orden de magnitud según su proximidad estructural al nodo objetivo: la evidencia sobre padres directos desplazó la probabilidad hasta en 0.37 unidades, mientras que la evidencia separada por tres arcos apenas la modificó. Este análisis, ausente si sólo se reportaran las probabilidades condicionales, permite distinguir entre consultas informativas y consultas formalmente correctas pero de escaso contenido.
+
+**Variables categóricas.** La extensión condicional-gaussiana con diabetes e hipertensión deterioró los criterios de información, aunque permitió estratificar el riesgo de forma clínicamente útil: la probabilidad de creatinina elevada pasó del 40.70% en ausencia de comorbilidades al 78.35% con ambas presentes. El caso ilustra que el mejor modelo según criterios de parsimonia no coincide necesariamente con el más útil para una aplicación concreta.
+
+**Modelado no paramétrico.** La relajación de la linealidad mediante splines mejoró el BIC agregado en 59.29 puntos, pero la descomposición por nodo y la validación cruzada mostraron que la ganancia se concentra en el eje hematológico y que en los nodos con distribuciones fuertemente sesgadas el modelo flexible sobreajusta. La arquitectura más adecuada para estos datos es por tanto híbrida: relaciones flexibles para la respuesta hematológica y relaciones lineales para los marcadores metabólicos y vasculares.
 
 ## Referencias
 
-Diabetes.org (American Diabetes Association). (s.f.). *Diabetes, presión arterial alta y enfermedad renal crónica (ERC)*. Recuperado el 5 de septiembre de 2026, de https://diabetes.org/es/sobre-la-diabetes/complicaciones/enfermedad-renal-cronica/diabetes-presion-arterial-alta-enfermedad-renal-cronica[cite: 15]
+Diabetes.org (American Diabetes Association). (s.f.). *Diabetes, presión arterial alta y enfermedad renal crónica (ERC)*. Recuperado el 5 de septiembre de 2026, de https://diabetes.org/es/sobre-la-diabetes/complicaciones/enfermedad-renal-cronica/diabetes-presion-arterial-alta-enfermedad-renal-cronica
 
 Kidney Disease: Improving Global Outcomes (KDIGO) Anemia Work Group. (2012). KDIGO Clinical Practice Guideline for Anemia in Chronic Kidney Disease. *Kidney International Supplements*, 2(4), 279–335. https://doi.org/10.1038/kisup.2012.33
 
@@ -351,21 +422,22 @@ Koller, D., & Friedman, N. (2009). *Probabilistic Graphical Models: Principles a
 
 Kovesdy, C. P. (2014). Management of hyperkalemia in chronic kidney disease. *Nature Reviews Nephrology*, 10(11), 653–662. https://doi.org/10.1038/nrneph.2014.168
 
-National Kidney Foundation. (2024, 8 de noviembre). *La hipertensión arterial y la diabetes: dos enemigos silenciosos para tus riñones*. Kidney.org. https://www.kidney.org/es/news-stories/la-hipertension-arterial-y-la-diabetes-dos-enemigos-silenciosos-para-tus-rinones[cite: 15]
+National Kidney Foundation. (2024, 8 de noviembre). *La hipertensión arterial y la diabetes: dos enemigos silenciosos para tus riñones*. Kidney.org. https://www.kidney.org/es/news-stories/la-hipertension-arterial-y-la-diabetes-dos-enemigos-silenciosos-para-tus-rinones
 
-Organización Panamericana de la Salud. (2014, 11 de marzo). *Crece el número de enfermos renales entre los mayores de 60 años con diabetes e hipertensión*. OPS/OMS. https://www.paho.org/es/noticias/11-3-2014-crece-numero-enfermos-renales-entre-mayores-60-anos-con-diabetes-e-hipertension[cite: 15]
+Organización Panamericana de la Salud. (2014, 11 de marzo). *Crece el número de enfermos renales entre los mayores de 60 años con diabetes e hipertensión*. OPS/OMS. https://www.paho.org/es/noticias/11-3-2014-crece-numero-enfermos-renales-entre-mayores-60-anos-con-diabetes-e-hipertension
 
-Rubini, L., Soundarapandian, P., & Eswaran, P. (2015). *Chronic Kidney Disease* [Conjunto de datos]. UCI Machine Learning Repository. https://doi.org/10.24432/C5G020[cite: 15]
+Rubini, L., Soundarapandian, P., & Eswaran, P. (2015). *Chronic Kidney Disease* [Conjunto de datos]. UCI Machine Learning Repository. https://doi.org/10.24432/C5G020
 
 Scutari, M. (2010). Learning Bayesian Networks with the bnlearn R Package. *Journal of Statistical Software*, 35(3), 1–22. https://doi.org/10.18637/jss.v035.i03
 
-Serna-Soto, J. L., Ortega-Mendoza, R. A. de J., Rivera-Ramírez, O. A., & Pérez-Peláez, G. C. (2016). Prevalencia de enfermedad renal crónica en pacientes con diabetes mellitus e hipertensión arterial en el Hospital Escandón. *Salud Pública de México*, 58(3), 338–339. https://doi.org/10.21149/spm.v58i3.7918[cite: 15]
+Serna-Soto, J. L., Ortega-Mendoza, R. A. de J., Rivera-Ramírez, O. A., & Pérez-Peláez, G. C. (2016). Prevalencia de enfermedad renal crónica en pacientes con diabetes mellitus e hipertensión arterial en el Hospital Escandón. *Salud Pública de México*, 58(3), 338–339. https://doi.org/10.21149/spm.v58i3.7918
 
 Thomas, R., Kanso, A., & Sedor, J. R. (2008). Chronic kidney disease and its complications. *Primary Care: Clinics in Office Practice*, 35(2), 329–344. https://doi.org/10.1016/j.pop.2008.01.008
 
-Vertigo Político. (2022). *Los principales responsables de la enfermedad renal crónica son la diabetes y la hipertensión arterial*. https://www.vertigopolitico.com/bienestar/notas/los-principales-responsables-la-enfermedad-renal-cronica-son-la-diabetes-y[cite: 15]
+Vertigo Político. (2022). *Los principales responsables de la enfermedad renal crónica son la diabetes y la hipertensión arterial*. https://www.vertigopolitico.com/bienestar/notas/los-principales-responsables-la-enfermedad-renal-cronica-son-la-diabetes-y
 
 Wood, S. N. (2017). *Generalized Additive Models: An Introduction with R* (2nd ed.). CRC Press. https://doi.org/10.1201/9781315370279
-```
 
-- [Repositorio del Proyecto](https://github.com/RafaelHeredia12/ARTICULO-2)
+---
+
+[Repositorio del proyecto](https://github.com/RafaelHeredia12/ARTICULO-2)
