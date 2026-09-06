@@ -335,10 +335,11 @@ El estudio presenta cuatro limitaciones principales que deben considerarse al in
 
 ## Conclusiones
 
-```{=html}
-<!-- TODO: 3-5 conclusiones concretas ligadas al objetivo planteado en
-la Introducción. Sin información nueva. -->
-```
+
+* **Selección de la arquitectura óptima:** La red bayesiana gaussiana estructurada bajo la **DAG 1** —que ubica a la creatinina sérica como el punto central de convergencia entre los factores de riesgo iniciales (edad, presión arterial, glucosa) y las complicaciones secundarias (eje hematológico)— obtuvo el mejor ajuste estadístico (BIC: $-8799.90$, AIC: $-8744.37$). Esto demuestra que la parsimonia estructural, alineada con la fisiopatología renal, supera en precisión a modelos de mayor densidad de arcos.
+* **Capacidad de inferencia clínica bajo incertidumbre:** El modelo probabilístico respondió de forma robusta a consultas clínicas relevantes, determinando una probabilidad del $77.49\%$ de creatinina elevada ante niveles altos de glucosa ($150\text{ mg/dL}$). Asimismo, la identificación formal de consultas no resolubles (Q3 y Q5) por d-separación valida la capacidad de las GBN para evitar estimaciones espurias entre variables estructuralmente independientes.
+* **Estratificación del riesgo mediante variables categóricas:** Aunque la incorporación de diabetes e hipertensión en la red condicional-gaussiana (CLG) conllevó una penalización en BIC/AIC por el incremento de parámetros, demostró una alta utilidad clínica al estratificar el riesgo: la probabilidad de presentar daño renal ($sc > 1.5\text{ mg/dL}$) aumentó del $40.70\%$ en ausencia de comorbilidades al $78.35\%$ en presencia de ambas.
+* **Superioridad del modelado híbrido (lineal-flexible):** La relajación de la linealidad mediante splines (GAM) incrementó el BIC global en $59.29$ puntos, impulsada en más del $91\%$ por el comportamiento no lineal del eje hematológico (`hemo` y `pcv`). No obstante, la degradación predictiva en nodos con distribuciones fuertemente sesgadas (`sc`) indica que la arquitectura idónea para el diagnóstico de la ERC es de naturaleza híbrida: relaciones flexibles para la respuesta hematológica a la anemia y relaciones lineales para los marcadores metabólicos y vasculares.
 
 ## Referencias
 
