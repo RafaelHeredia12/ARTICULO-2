@@ -16,14 +16,11 @@
 # El BIC/AIC de la red completa es la SUMA de los BIC/AIC de
 # las distribuciones locales (un modelo por nodo), ya que la
 # log-verosimilitud conjunta se factoriza segun la DAG.
-<<<<<<< HEAD
 #
 # Los scores se convierten a la escala de bnlearn
 #     BIC_bnlearn = -BIC_R / 2
 # para que sean directamente comparables con los reportados en
 # los scripts 02 y 04 (donde MAYOR es mejor).
-=======
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 #
 # Output:
 #   output/figures/efectos_parciales_gam.png
@@ -119,7 +116,6 @@ for (nodo in names(padres)) {
 
 # ------------------------------------------------------------
 # 4. BIC y AIC de la red completa = suma sobre nodos
-<<<<<<< HEAD
 #
 #    Las funciones BIC()/AIC() de R usan la convencion
 #        BIC_R = -2*loglik + k*log(n)      (MENOR es mejor)
@@ -139,13 +135,6 @@ bic_lineal <- -bic_lineal_R / 2
 aic_lineal <- -aic_lineal_R / 2
 bic_gam    <- -bic_gam_R / 2
 aic_gam    <- -aic_gam_R / 2
-=======
-# ------------------------------------------------------------
-bic_lineal <- sum(sapply(modelos_lin, BIC))
-aic_lineal <- sum(sapply(modelos_lin, AIC))
-bic_gam    <- sum(sapply(modelos_gam, BIC))
-aic_gam    <- sum(sapply(modelos_gam, AIC))
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 
 tabla_np <- data.frame(
   Modelo = c("GBN lineal (DAG 1)",
@@ -155,7 +144,6 @@ tabla_np <- data.frame(
 )
 
 cat("\n=== Comparacion: GBN lineal vs. GAM no parametrico ===\n")
-<<<<<<< HEAD
 cat("(escala bnlearn: MAYOR es mejor, comparable con scripts 02 y 04)\n\n")
 print(tabla_np)
 
@@ -191,69 +179,7 @@ if (aic_gam > aic_lineal) {
 } else {
   cat("El modelo no parametrico NO mejora el AIC.\n")
   cat("Diferencia:", round(aic_lineal - aic_gam, 2), "puntos a favor del lineal.\n")
-=======
-print(tabla_np)
-cat("\nNOTA: aqui BIC/AIC se calculan con las funciones base de R,\n")
-cat("donde MENOR es mejor (convencion opuesta a score() de bnlearn).\n\n")
-
-if (bic_gam < bic_lineal) {
-  cat("El modelo no parametrico MEJORA el BIC.\n")
-  cat("Diferencia:", round(bic_lineal - bic_gam, 2), "puntos.\n")
-} else {
-  cat("El modelo no parametrico NO mejora el BIC.\n")
-  cat("Diferencia:", round(bic_gam - bic_lineal, 2), "puntos a favor del lineal.\n")
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 }
-
-if (aic_gam < aic_lineal) {
-  cat("El modelo no parametrico MEJORA el AIC.\n")
-} else {
-  cat("El modelo no parametrico NO mejora el AIC.\n")
-}
-
-# ------------------------------------------------------------
-# 5. Grados de libertad efectivos (edf) por nodo
-#    edf ~ 1 indica relacion practicamente lineal;
-#    edf > 2 sugiere no linealidad relevante.
-#    Esto justifica CUALES relaciones se benefician del spline.
-# ------------------------------------------------------------
-cat("\n=== Grados de libertad efectivos (edf) por termino spline ===\n")
-cat("edf cercano a 1 => la relacion es esencialmente lineal\n\n")
-
-filas_edf <- list()
-for (nodo in names(modelos_gam)) {
-  m <- modelos_gam[[nodo]]
-  if (inherits(m, "gam") && length(m$smooth) > 0) {
-    s_table <- summary(m)$s.table
-    for (i in seq_len(nrow(s_table))) {
-      filas_edf[[length(filas_edf) + 1]] <- data.frame(
-        Nodo    = nodo,
-        Termino = rownames(s_table)[i],
-        edf     = round(s_table[i, "edf"], 3),
-        p_valor = round(s_table[i, "p-value"], 4)
-      )
-    }
-  }
-}
-tabla_edf <- do.call(rbind, filas_edf)
-print(tabla_edf, row.names = FALSE)
-
-# ------------------------------------------------------------
-# 6. Figura: efectos parciales de los splines
-# ------------------------------------------------------------
-nodos_con_spline <- names(modelos_gam)[
-  sapply(modelos_gam, function(m) inherits(m, "gam"))
-]
-
-png("output/figures/efectos_parciales_gam.png",
-    width = 1600, height = 1200, res = 150)
-par(mfrow = c(3, 4), mar = c(4, 4, 3, 1))
-for (nodo in nodos_con_spline) {
-  plot(modelos_gam[[nodo]], residuals = TRUE, shade = TRUE,
-       main = paste("Nodo:", nodo), cex.main = 1)
-}
-dev.off()
-cat("\nImagen guardada: output/figures/efectos_parciales_gam.png\n")
 
 # ------------------------------------------------------------
 # 5. Descomposicion de la mejora por nodo
@@ -261,7 +187,6 @@ cat("\nImagen guardada: output/figures/efectos_parciales_gam.png\n")
 #    nodos y estorba en otros. Descomponemos BIC por distribucion
 #    local para ver de donde viene realmente la ganancia.
 # ------------------------------------------------------------
-<<<<<<< HEAD
 filas_nodo <- list()
 for (nodo in names(padres)) {
   if (length(padres[[nodo]]) == 0) next   # nodo raiz: mismo modelo
@@ -392,8 +317,3 @@ saveRDS(tabla_nodo, "data/processed/bic_por_nodo.rds")
 saveRDS(tabla_cv,   "data/processed/cv_gam.rds")
 cat("Guardado: scores_noparametrico.rds, edf_gam.rds,\n")
 cat("          bic_por_nodo.rds, cv_gam.rds\n")
-=======
-saveRDS(tabla_np,  "data/processed/scores_noparametrico.rds")
-saveRDS(tabla_edf, "data/processed/edf_gam.rds")
-cat("Guardado: scores_noparametrico.rds, edf_gam.rds\n")
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
