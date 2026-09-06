@@ -25,6 +25,9 @@ tabla_dags     <- readRDS("../data/processed/comparacion_bic_aic.rds")
 resultados_q   <- readRDS("../data/processed/resultados_queries.rds")
 tabla_mixto    <- readRDS("../data/processed/scores_mixto.rds")
 tabla_np       <- readRDS("../data/processed/scores_noparametrico.rds")
+tabla_edf      <- readRDS("../data/processed/edf_gam.rds")
+tabla_nodo     <- readRDS("../data/processed/bic_por_nodo.rds")
+tabla_cv       <- readRDS("../data/processed/cv_gam.rds")
 ```
 
 ## Abstract
@@ -46,7 +49,7 @@ Esto conecta directamente con el reconocimiento de patrones: la red no solo pred
 
 El objetivo de este trabajo es implementar un modelo probabilístico —una red bayesiana gaussiana— que ayude a comprender cómo diferentes biomarcadores influyen en el diagnóstico de la enfermedad renal crónica, y utilizar dicho modelo para responder consultas probabilísticas de relevancia clínica.
 
-El resto del artículo se organiza de la siguiente manera. La sección de Métodos describe el conjunto de datos y su preprocesamiento, el proceso de entrevistas mediante el cual se construyeron las tres estructuras candidatas, el ajuste y los criterios de evaluación de las redes, así como las dos extensiones exploradas: la incorporación de variables categóricas mediante una red condicional-gaussiana y la evaluación del supuesto de normalidad a través de una transformación logarítmica. La sección de Resultados presenta los valores de BIC y AIC obtenidos para cada estructura, las respuestas a las consultas planteadas por las especialistas y las métricas de ajuste de ambas extensiones. La sección de Discusión interpreta estos hallazgos a la luz de la literatura clínica y estadística, incluyendo la justificación formal de las consultas que no resultaron resolubles con la mejor estructura. Finalmente, se presentan las conclusiones y las limitaciones del estudio.
+El resto del artículo se organiza de la siguiente manera. La sección de Métodos describe el conjunto de datos y su preprocesamiento, el proceso de entrevistas mediante el cual se construyeron las tres estructuras candidatas, el ajuste y los criterios de evaluación de las redes, así como las dos extensiones exploradas: la incorporación de variables categóricas mediante una red condicional-gaussiana y la relajación del supuesto de linealidad mediante un modelo no paramétrico basado en splines. La sección de Resultados presenta los valores de BIC y AIC obtenidos para cada estructura, las respuestas a las consultas planteadas por las especialistas y las métricas de ajuste de ambas extensiones. La sección de Discusión interpreta estos hallazgos a la luz de la literatura clínica y estadística, incluyendo la justificación formal de las consultas que no resultaron resolubles con la mejor estructura. Finalmente, se presentan las conclusiones y las limitaciones del estudio.
 
 ## Métodos
 
@@ -73,7 +76,7 @@ Se optó por un análisis de casos completos, que conserva 214 de los 400 regist
 
 ### Estructuras candidatas (DAGs)
 
-Se realizaron entrevistas con tres personas del entorno médico familiar; la mamá de Grethel, la tía de Matías Hidalgo, ambas médicas, y una amiga de Daniel Rodríguez, estudiante próxima a egresar de la carrera de Medicina, a quienes se les explicó el concepto de una DAG y con quienes se construyó cada estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables: edad, presión arterial, glucosa en sangre (aleatoria), creatinina sérica, urea en sangre, sodio, potasio, hemoglobina, volumen de células empacadas y conteo de glóbulos blancos y rojos. Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Sin embargo, difieren en aspectos clave: la primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables; la segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más de estilo de vida y genética que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias; mientras que la tercera planteó la estructura más elaborada, sugiriendo que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación del riñón, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola, reflejando el carácter multifactorial de la anemia renal, y añadiendo una relación dirigida del potasio hacia el sodio no considerada por las otras dos especialistas.
+Se realizaron entrevistas con tres personas del entorno médico familiar; la mamá de Grethel, la tía de Matías Hidalgo, ambas médicas, y una amiga de Daniel Rodríguez, estudiante próxima a egresar de la carrera de Medicina, a quienes se les explicó el concepto de una DAG y con quienes se construyó cada estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables: edad, presión arterial, glucosa en sangre (aleatoria), creatinina sérica, urea en sangre, sodio, potasio, hemoglobina, volumen de células empacadas y conteo de glóbulos blancos y rojos. Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Sin embargo, difieren en aspectos clave: la primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables; la segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más de estilo de vida y genética que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias; mientras que la tercera planteó la estructura más elaborada, sugiriendo que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación del riñón, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola, reflejando el carácter multifactorial de la anemia renal, y añadiendo una relación entre potasio y sodio no considerada por las otras dos especialistas.
 
 ![**DAG 1** — creatinina sérica como punto único de convergencia.](../output/figures/dag1_ckd.png)
 
@@ -103,17 +106,52 @@ ajuste. -->
 
 ### Modelos no paramétricos
 
-<!-- TODO: describir el enfoque de 05_no_parametrico.R:
-- Las GBN asumen normalidad condicional en cada nodo; se evaluó ese
-  supuesto con la prueba de Shapiro-Wilk
-- Como alternativa flexible se aplicó una transformación logarítmica
-  a las variables que rechazaron normalidad, y se reajustó la misma DAG
-- IMPORTANTE (explicar en el texto): las verosimilitudes de modelos
-  ajustados sobre escalas distintas no son directamente comparables.
-  Al transformar Y = log(X), la densidad cambia según el jacobiano:
-  f_Y(y) = f_X(x)·|dx/dy|. Para comparar en la escala original se
-  restó el término sum(log(x)) a la log-verosimilitud del modelo
-  transformado. -->
+<!-- TODO: redactar a partir de estos puntos:
+
+- Una GBN asume que cada nodo hijo es una combinación LINEAL de sus
+  padres. El modelo no paramétrico relaja ese supuesto: para un nodo
+  hijo y con padres x_1, ..., x_p se modela
+
+      y = beta_0 + f_1(x_1) + ... + f_p(x_p) + error
+
+  donde cada f_j es una función suave estimada de los datos (spline)
+  en lugar de un coeficiente lineal fijo.
+
+- Un spline es una función construida por pedazos, típicamente
+  polinomios de grado 3 unidos en puntos de corte, resultado de una
+  suma ponderada de funciones base.
+
+- Se ajustó un modelo aditivo generalizado (GAM) por cada nodo con
+  padres mediante gam() del paquete mgcv con method = "REML", y un
+  modelo de sólo intercepto para el nodo raíz (age).
+
+- El BIC y el AIC de la red completa se obtienen como la SUMA de los
+  scores de las distribuciones locales, ya que la log-verosimilitud
+  conjunta se factoriza según la DAG.
+
+- Mencionar la restricción sobre bp: al tomar únicamente nueve valores
+  distintos (medición clínica redondeada), la base del spline debió
+  reducirse a k = 8. Es una limitación del dato, no del método.
+
+- Sobre la escala de los criterios: BIC() y AIC() de R usan la
+  convención BIC_R = -2*loglik + k*log(n), mientras que score() de
+  bnlearn usa BIC_bnlearn = loglik - (k/2)*log(n). Ambas se
+  relacionan por BIC_bnlearn = -BIC_R / 2, por lo que los scores del
+  modelo no paramétrico se convirtieron a la escala de bnlearn y son
+  directamente comparables con los de las secciones anteriores (mayor
+  es mejor).
+
+- Se verificó la conversión recalculando el BIC del modelo lineal por
+  ambas vías: -8799.85 mediante BIC() convertido y -8799.90 mediante
+  score(). La diferencia de 0.05 se debe a que bnlearn estima la
+  varianza de cada nodo con denominador insesgado mientras que
+  logLik() de R emplea el estimador de máxima verosimilitud.
+
+- Para evaluar si la mejora agregada es homogénea, el BIC se
+  descompuso por distribución local, y se realizó una validación
+  cruzada de 10 particiones comparando el error de predicción fuera
+  de muestra de cada nodo bajo ambos enfoques. Esto permite
+  distinguir la no linealidad genuina del sobreajuste. -->
 
 ### Consultas (queries)
 
@@ -219,28 +257,59 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 
 ```{r np-table}
 #| echo: false
-tabla_np_fmt <- tabla_np
-tabla_np_fmt$Modelo <- c(
-  "GBN gaussiana (escala original)",
-  "GBN gaussiana (escala $\\log$, sin corregir)",
-  "GBN gaussiana (escala $\\log$, con corrección jacobiana)"
-)
-
-kable(tabla_np_fmt,
-      col.names = c("Modelo", "BIC", "AIC", "Comparable"),
-      align = c("l", "r", "r", "c"),
-      escape = FALSE,
-      caption = "Comparación de ajuste antes y después de la transformación logarítmica. Sólo las filas marcadas como comparables están definidas sobre la misma escala.")
+kable(tabla_np,
+      col.names = c("Modelo", "BIC", "AIC"),
+      align = c("l", "r", "r"),
+      caption = "Comparación entre la GBN lineal y el modelo no paramétrico basado en splines, en la escala de bnlearn (mayor es mejor).")
 ```
 
-![Distribuciones de las primeras cuatro variables antes y después de la transformación logarítmica.](../output/figures/histogramas_transformacion.png)
+```{r edf-table}
+#| echo: false
+kable(tabla_edf,
+      col.names = c("Nodo", "Término", "edf", "valor $p$"),
+      align = c("l", "l", "r", "r"),
+      escape = FALSE,
+      row.names = FALSE,
+      caption = "Grados de libertad efectivos de cada término suave. Un valor cercano a 1 indica una relación esencialmente lineal.")
+```
+
+```{r bic-por-nodo}
+#| echo: false
+kable(tabla_nodo,
+      col.names = c("Nodo", "BIC lineal", "BIC GAM", "Mejora"),
+      align = c("l", "r", "r", "r"),
+      row.names = FALSE,
+      caption = "Descomposición de la mejora del BIC por distribución local. Un valor positivo indica que el término suave mejora el ajuste de ese nodo.")
+```
+
+```{r cv-table}
+#| echo: false
+kable(tabla_cv,
+      col.names = c("Nodo", "RMSE lineal", "RMSE GAM", "Mejora (%)"),
+      align = c("l", "r", "r", "r"),
+      row.names = FALSE,
+      caption = "Error de predicción fuera de muestra por nodo, validación cruzada de 10 particiones.")
+```
+
+![Efectos parciales estimados para cada término suave del modelo no paramétrico.](../output/figures/efectos_parciales_gam.png)
 
 <!-- TODO: reportar sin interpretar:
-- Todas las variables rechazaron normalidad en el test original
-  (p < 0.05); age y rc con los p-valores más altos (0.0194 y 0.0351)
-- Tras la transformación, wc dejó de rechazar normalidad (p = 0.0512)
-  y pot mejoró (p = 0.0001); age, sod, hemo, pcv y rc empeoraron
-- BIC original -8799.90 vs BIC transformado corregido -8418.39 -->
+- El modelo no paramétrico obtuvo BIC -8740.56 frente a -8799.85 del
+  modelo lineal (mejora de 59.29 puntos) y AIC -8606.15 frente a
+  -8744.31 (mejora de 138.16 puntos)
+- Todos los términos suaves resultaron significativos (p < 0.05)
+  excepto s(age) en el nodo bp (p = 0.1949)
+- Los grados de libertad efectivos oscilan entre 1.636 (bp ~ age) y
+  8.384 (bu ~ sc)
+- La descomposición por nodo muestra que el término suave mejora el
+  BIC en 5 de los 10 nodos con padres; pcv (+29.76), hemo (+24.34) y
+  rc (+7.98) concentran la mayor parte de la ganancia, mientras que
+  pot (-4.49), bgr (-2.87), bp (-2.02), wc (-0.98) y sc (-0.55)
+  registran deterioro
+- En validación cruzada el modelo no paramétrico redujo el error de
+  predicción en 6 de 10 nodos, con las mayores reducciones en pcv
+  (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos en
+  sc (26.9%) y bu (6.2%) -->
 
 ## Discusión
 
@@ -298,25 +367,68 @@ de sc sobre pot. -->
 
 ### Modelos no paramétricos
 
-<!-- TODO: interpretar. Puntos:
-- Una vez aplicada la corrección jacobiana, la transformación
-  logarítmica sí mejoró el ajuste (-8418.39 vs -8799.90)
-- Discutir la aparente paradoja: la mayoría de variables siguieron
-  rechazando normalidad marginal tras transformar, y aun así el
-  ajuste conjunto de la red mejoró. Posible explicación: lo que la
-  GBN requiere es normalidad CONDICIONAL de cada nodo dados sus
-  padres, no normalidad marginal
-- Analizar el trade-off flexibilidad vs. interpretabilidad: los
-  coeficientes en escala logarítmica se interpretan como elasticidades
-  y no como cambios absolutos, lo que complica la lectura clínica -->
+<!-- TODO: interpretar. Puntos a desarrollar:
+
+- El modelo no paramétrico mejoró tanto el BIC como el AIC agregados
+  (59.29 y 138.16 puntos respectivamente). Sin embargo, la
+  descomposición por nodo muestra que esa mejora NO está distribuida
+  de manera uniforme y conviene no leerla como una superioridad
+  global del enfoque flexible.
+
+- Dónde la no linealidad es genuina: la ganancia se concentra en el
+  eje hematológico. pcv ~ hemo y hemo ~ sc aportan juntos más de 54
+  de los 59 puntos de mejora, y son también los nodos donde la
+  validación cruzada confirma mejor predicción fuera de muestra
+  (17.4% y 13.1%). Discutir la plausibilidad clínica: la relación
+  entre función renal y anemia no es proporcional sino que presenta
+  un efecto de umbral conforme se deteriora el filtrado.
+
+- Dónde el spline no aporta o perjudica: en cinco nodos el término
+  suave deteriora el BIC. El caso más claro es sc ~ bp + bgr, donde
+  la validación cruzada muestra un error de predicción 26.9% mayor
+  que el del modelo lineal. Relacionarlo con la distribución de sc:
+  fuertemente sesgada (mediana 1.15 mg/dL frente a un máximo de
+  15.2), con pocas observaciones en la cola superior, de modo que el
+  spline persigue valores extremos en lugar de estructura real.
+  Es un caso de sobreajuste, no de no linealidad.
+
+- bp ~ age es el único término no significativo (edf 1.636,
+  p = 0.1949): la relación entre edad y presión arterial resulta
+  esencialmente lineal en esta muestra. Añadir que bp toma sólo
+  nueve valores distintos, por lo que ninguna técnica flexible puede
+  extraer más estructura de esa variable.
+
+- Trade-off flexibilidad vs. complejidad e interpretabilidad:
+  * A favor: captura relaciones curvas que la GBN lineal no puede
+    representar, con evidencia de validación cruzada en tres nodos
+  * En contra: se pierden coeficientes interpretables del tipo "un
+    aumento unitario en sc implica X en hemo"; el efecto pasa a ser
+    una curva que debe leerse gráficamente
+  * En contra: cpquery() de bnlearn opera únicamente sobre modelos
+    paramétricos, de modo que responder las consultas con el modelo
+    no paramétrico exigiría implementar manualmente logic sampling o
+    likelihood weighting. Por ello las consultas se resolvieron
+    sobre la GBN lineal.
+
+- Conclusión metodológica a plantear: el criterio de información
+  agregado favorece al modelo flexible, pero un análisis por nodo
+  revela que el enfoque adecuado es mixto — splines en el eje
+  hematológico y forma lineal en el resto. -->
 
 ### Articulación de los hallazgos
 
-<!-- TODO: los resultados del modelo mixto y de la transformación
-apuntan en direcciones distintas: agregar información categórica no
-mejoró el ajuste, mientras que cambiar la escala de representación sí.
-Discutir qué implica esto sobre dónde estaba la limitación real del
-modelo (no en la falta de variables, sino en la forma funcional). -->
+<!-- TODO: los resultados de las dos extensiones apuntan en
+direcciones distintas y conviene articularlo explícitamente:
+
+- Añadir información categórica (dm, htn) NO mejoró los criterios de
+  información, aunque sí resultó clínicamente informativo en la
+  inferencia.
+- Relajar la forma funcional mediante splines SÍ mejoró el ajuste.
+
+Interpretación posible: la limitación principal del modelo no estaba
+en la ausencia de variables, sino en la restricción de linealidad
+impuesta por la GBN gaussiana. Discutir qué implica esto para el
+modelado de biomarcadores renales. -->
 
 ### Limitaciones
 
