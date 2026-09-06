@@ -41,6 +41,7 @@ Esto conecta directamente con el reconocimiento de patrones: la red no solo pred
 
 El objetivo de este trabajo es implementar un modelo probabilístico "una red bayesiana gaussiana"  que ayude a comprender cómo diferentes biomarcadores influyen en el diagnóstico de la enfermedad renal crónica, y utilizar dicho modelo para responder consultas probabilísticas de relevancia clínica.
 
+ESTRUCTURA PENDIIIENTEEE  !!! 
 
 ## Métodos
 
