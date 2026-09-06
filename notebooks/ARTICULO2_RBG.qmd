@@ -86,11 +86,81 @@ Se realizaron entrevistas con tres personas del entorno médico familiar; la mam
 
 ### Ajuste y evaluación de las Redes Bayesianas Gaussianas
 
-<!-- TODO: describir que se ajustó una GBN por cada DAG con bn.fit()
-sobre la MISMA submuestra de 214 casos completos, para que BIC y AIC
-sean comparables entre estructuras (mismo n). Explicar brevemente qué
-penalizan BIC y AIC y por qué en bnlearn un valor mayor indica mejor
-ajuste. -->
+Para cada una de las tres estructuras propuestas se ajustó una red bayesiana gaussiana mediante la función `bn.fit()` del paquete `bnlearn`, que estima los parámetros de cada distribución local por máxima verosimilitud. En una GBN, la distribución local de cada nodo corresponde a un modelo lineal gaussiano en el que los nodos padre actúan como variables explicativas: el nodo se distribuye normalmente con una media que es combinación lineal de sus padres y una varianza propia que no depende de ellos. Los nodos sin padres se modelan como distribuciones normales univariadas marginales.
+
+Las tres redes se ajustaron sobre la misma submuestra de 214 casos completos. Esta condición es necesaria para que la comparación sea válida: tanto el BIC como el AIC dependen del tamaño muestral, de modo que ajustar cada estructura sobre un subconjunto distinto de observaciones produciría valores no comparables entre sí, y las diferencias reflejarían el cambio de muestra en lugar de la calidad de la estructura.
+
+La evaluación se realizó mediante dos criterios de información. Ambos combinan la log-verosimilitud alcanzada por el modelo con una penalización que crece con el número de parámetros, de manera que un modelo con más arcos sólo obtiene mejor puntaje si la ganancia en ajuste supera el costo de la complejidad añadida. La diferencia entre ambos está en la severidad de esa penalización: el AIC penaliza cada parámetro con un peso constante, mientras que el BIC lo pondera por el logaritmo del tamaño muestral, resultando más estricto y favoreciendo estructuras más parsimoniosas.
+
+Conviene señalar una particularidad de la implementación. La formulación de `bnlearn` corresponde a
+
+$$\text{BIC}_{\texttt{bnlearn}} = \ell(\hat{\boldsymbol{\theta}}; \boldsymbol{x}) - \frac{k}{2}\log(n),$$
+
+donde $\ell$ es la log-verosimilitud, $k$ el número de parámetros y $n$ el tamaño muestral. Al expresarse como la log-verosimilitud menos la penalización, y no como su negativo multiplicado por dos, un valor **mayor** indica mejor ajuste. Esta convención es opuesta a la de las funciones `BIC()` y `AIC()` de R base, y se mantiene de forma consistente en todas las tablas de este trabajo.
+
+### Extensión con variables categóricas
+
+Una GBN requiere que todos sus nodos sean continuos y normalmente distribuidos, por lo que las variables categóricas del conjunto de datos quedan excluidas del modelo principal. Sin embargo, esta restricción puede relajarse mediante las redes bayesianas condicional-gaussianas (CLG), que admiten nodos discretos y continuos en una misma estructura.
+
+En una red CLG la coexistencia de ambos tipos de nodo no es arbitraria: las variables discretas sólo pueden ser nodos raíz o padres de nodos continuos, nunca hijos de ellos. La razón es que la distribución de un nodo continuo puede condicionarse a las categorías de un padre discreto —ajustando una distribución gaussiana distinta para cada combinación de niveles—, mientras que la operación inversa no está definida dentro de este marco. Los nodos continuos con padres discretos siguen entonces una distribución normal cuya media varía según el nivel del padre categórico.
+
+Para explorar esta extensión se amplió la mejor estructura identificada con las dos comorbilidades más relevantes para la enfermedad renal crónica y que se encuentran disponibles en el conjunto de datos: diabetes mellitus (`dm`) e hipertensión arterial (`htn`). Ambas se incorporaron como nodos raíz de tipo factor, conectados a los nodos continuos mediante cuatro arcos con sustento clínico: `dm` → `bgr`, dado que la diabetes se manifiesta directamente en niveles elevados de glucosa en sangre; `htn` → `bp`, puesto que la hipertensión se define por valores altos de presión arterial; y `dm` → `sc` junto con `htn` → `sc`, reflejando que ambas condiciones deterioran progresivamente la función renal y elevan la creatinina sérica.
+
+El modelo mixto se ajustó con `bn.fit()` sobre 212 casos completos —dos menos que el modelo principal, debido a registros con valores faltantes en las variables categóricas— y se evaluó con los criterios `bic-cg` y `aic-cg`, las versiones para redes condicional-gaussianas de los criterios empleados anteriormente.
+
+### Modelos no paramétricos
+
+La GBN impone que cada nodo hijo sea una combinación lineal de sus padres. Un modelo no paramétrico relaja ese supuesto: si $y$ es un nodo hijo y $\boldsymbol{x} = (x_1, \dots, x_p)$ son sus nodos padre, la relación se describe como
+
+$$y \sim \text{N}\left(f_1(x_1) + \dots + f_p(x_p),\ \sigma^2\right),$$
+
+donde cada $f_j(\cdot)$ es una función suave desconocida del nodo padre $x_j$, estimada a partir de los datos en lugar de fijarse como un coeficiente lineal. La forma de la relación deja así de imponerse a priori y pasa a determinarse por la evidencia disponible.
+
+Estas funciones suaves se construyen mediante splines. Un spline es una función definida por pedazos, típicamente polinomios de grado tres unidos en puntos de corte, que resulta de la suma ponderada de un conjunto de funciones base. El número de funciones base determina la flexibilidad máxima de la curva.
+
+Se ajustó un modelo aditivo generalizado (GAM) para cada nodo con padres mediante la función `gam()` del paquete `mgcv`, empleando `method = "REML"` para la estimación de los parámetros de suavizado. El nodo raíz (`age`), al carecer de padres, se modeló como una distribución gaussiana univariada. El BIC y el AIC de la red completa se obtuvieron como la suma de los scores de las distribuciones locales, procedimiento válido porque la log-verosimilitud conjunta se factoriza según la estructura de la DAG.
+
+La construcción de los splines encontró una restricción en la variable `bp`. Al tratarse de una medición clínica registrada en múltiplos de diez, toma únicamente nueve valores distintos en la muestra, por debajo de la base de diez funciones que emplea `mgcv` por defecto. La base correspondiente se redujo en consecuencia a $k = 8$. Se trata de una limitación impuesta por la resolución del dato y no por el método: ninguna técnica flexible puede recuperar estructura que la variable no registra.
+
+Respecto a la escala de los criterios de información, las funciones `BIC()` y `AIC()` de R base emplean la convención $\text{BIC}_R = -2\ell + k\log(n)$, en la que un valor menor indica mejor ajuste, mientras que `score()` de `bnlearn` utiliza la formulación descrita anteriormente. Ambas se relacionan mediante $\text{BIC}_{\texttt{bnlearn}} = -\text{BIC}_R/2$, por lo que los scores del modelo no paramétrico se convirtieron a la escala de `bnlearn` y resultan directamente comparables con los reportados en las secciones previas.
+
+La conversión se verificó recalculando el BIC del modelo lineal por ambas vías, obteniendo $-8799.85$ mediante `BIC()` convertido frente a $-8799.90$ mediante `score()`. La discrepancia de 0.05 unidades se explica porque `bnlearn` estima la varianza de cada nodo con denominador insesgado, mientras que `logLik()` de R emplea el estimador de máxima verosimilitud.
+
+Finalmente, dado que un criterio de información agregado puede ocultar comportamientos heterogéneos entre nodos, se realizaron dos análisis complementarios. Por un lado, el BIC se descompuso por distribución local para identificar en qué nodos la introducción del término suave mejora efectivamente el ajuste y en cuáles lo deteriora. Por otro, se llevó a cabo una validación cruzada de diez particiones que compara el error de predicción fuera de muestra de cada nodo bajo ambos enfoques. Esta última resulta pertinente porque tanto el BIC como el AIC se calculan dentro de muestra: aunque penalizan la complejidad, no garantizan que la flexibilidad añadida se traduzca en mejor capacidad predictiva sobre observaciones no observadas. La combinación de ambos análisis permite distinguir la no linealidad genuina del sobreajuste.
+
+### Consultas (queries)
+
+Cada especialista entrevistada propuso dos consultas de interés clínico que pudieran resolverse mediante el modelo, para un total de seis. Las consultas se expresan en notación de probabilidad condicional de la siguiente forma:
+
+<!-- PENDIENTE: confirmar qué especialista propuso cada consulta y
+sustituir las etiquetas entre corchetes antes de entregar. -->
+
+**Consultas propuestas por [primera especialista]:**
+
+- **Q1.** Probabilidad de que la creatinina sérica supere 1.5 mg/dL en un paciente con presión arterial de 100 mmHg y glucosa en sangre de 150 mg/dL:
+$$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
+
+- **Q2.** Probabilidad de que la hemoglobina sea inferior a 10 g/dL, indicativa de anemia, en un paciente de 65 años:
+$$P(hemo < 10 \mid age = 65)$$
+
+**Consultas propuestas por [segunda especialista]:**
+
+- **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito inferior a 30%:
+$$P(wc > 11000 \mid pcv < 30)$$
+
+- **Q4.** Probabilidad de que el potasio supere 5.5 mEq/L, umbral de hipercalemia, en un paciente con creatinina sérica de 2.2 mg/dL y urea en sangre de 45 mg/dL:
+$$P(pot > 5.5 \mid sc = 2.2,\ bu = 45)$$
+
+**Consultas propuestas por [tercera especialista]:**
+
+- **Q5.** Probabilidad de que el hematocrito sea inferior a 33% en un paciente con urea de 60 mg/dL, sodio de 130 mEq/L y conteo de glóbulos blancos de 11,000 células/mm³:
+$$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
+
+- **Q6.** Probabilidad de un conteo bajo de glóbulos rojos, por debajo de 3.8 millones/µL, en un paciente cuya hemoglobina ha descendido a 9.5 g/dL:
+$$P(rc < 3.8 \mid hemo = 9.5)$$
+
+Las consultas se resolvieron sobre la estructura con mejor ajuste mediante inferencia aproximada por simulación, empleando la función `cpquery()` de `bnlearn`. Dado que toda la evidencia se expresa como valores puntuales sobre variables continuas, se utilizó el método de *likelihood weighting*, apropiado para este tipo de condicionamiento. Cada consulta se estimó con 10⁶ muestras y una semilla fija, de modo que los resultados sean reproducibles pese a la naturaleza estocástica del procedimiento.
+
 
 ### Extensión con variables categóricas
 
