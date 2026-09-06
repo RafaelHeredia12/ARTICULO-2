@@ -29,6 +29,19 @@ estructuras comparadas, hallazgo principal, sin citar tablas/figuras. -->
 - Objetivo del articulo y estructura del documento
 -->
 
+La enfermedad renal crónica (ERC) es el deterioro progresivo y a largo plazo de la función renal: los riñones pierden gradualmente su capacidad de filtrar desechos y regular el equilibrio de líquidos y electrolitos del cuerpo. Es un problema de salud pública de gran magnitud: la prevalencia global se estima entre 8% y 16% de la población, y se calcula que uno de cada diez adultos en el mundo tiene algún grado de ERC. Un dato preocupante es que la enfermedad avanza de forma silenciosa, ya que nueve de cada diez adultos con ERC no saben que la padecen, lo que hace crítica la detección temprana.
+
+Las dos causas principales son ampliamente reconocidas: la diabetes mellitus explica alrededor del 48.5% de los casos, y la hipertensión arterial cerca del 19%. Fisiológicamente, la hipertensión daña los vasos sanguíneos que irrigan los riñones y compromete su capacidad de filtrado, mientras que la diabetes provoca que el exceso de glucosa en sangre dañe progresivamente los filtros renales. Esta relación causal —edad, presión arterial y glucosa como antecedentes que derivan en daño renal medible por biomarcadores como la creatinina sérica— es precisamente la estructura que buscamos capturar con un modelo probabilístico.
+
+El diagnóstico de ERC no depende de un solo valor de laboratorio, sino de la interacción entre múltiples biomarcadores (creatinina, urea, hemoglobina, potasio, sodio, entre otros) que están relacionados entre sí de manera causal y no siempre lineal. Un enfoque de caja negra pierde información valiosa sobre cómo estas variables se influyen unas a otras. 
+
+Una red bayesiana gaussiana (GBN) resuelve esto de dos formas complementarias: primero, modela explícitamente la incertidumbre, ya que en vez de dar una predicción puntual entrega distribuciones de probabilidad completas, lo que permite responder preguntas del tipo "¿qué tan probable es que la creatinina esté elevada dado que el paciente tiene cierta edad y presión arterial?", algo especialmente útil para apoyar decisiones clínicas donde rara vez hay certeza absoluta; y segundo, representa relaciones causales interpretables, la estructura de grafo dirigido (DAG) permite trazar visualmente cómo el envejecimiento y los factores de riesgo (presión arterial, glucosa) impactan la función renal, y cómo esta a su vez repercute en marcadores hematológicos secundarios como la anemia.
+
+Esto conecta directamente con el reconocimiento de patrones: la red no solo predice, sino que expone la arquitectura de dependencias entre variables, permitiendo un diagnóstico temprano basado en evidencia observable (biomarcadores) en lugar de esperar síntomas avanzados.
+
+El objetivo de este trabajo es implementar un modelo probabilístico "una red bayesiana gaussiana"  que ayude a comprender cómo diferentes biomarcadores influyen en el diagnóstico de la enfermedad renal crónica, y utilizar dicho modelo para responder consultas probabilísticas de relevancia clínica.
+
+
 ## Métodos
 
 ### Datos

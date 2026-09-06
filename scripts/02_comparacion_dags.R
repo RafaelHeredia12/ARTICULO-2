@@ -127,3 +127,5 @@ saveRDS(mejor_fit,    "data/processed/mejor_gbn.rds")
 saveRDS(mejor_nombre, "data/processed/mejor_dag_nombre.rds")
 
 cat("\nGuardado: comparacion_bic_aic.rds, mejor_gbn.rds, mejor_dag_nombre.rds\n")
+
+
