@@ -37,4 +37,6 @@ graphviz.plot(dag, layout = "dot", shape = "ellipse")
 dev.off()
 
 score(dag, data = datos_bn, type = "bic-g")
+#-8799.905
 score(dag, data = datos_bn, type = "aic-g")
+#--8744.366

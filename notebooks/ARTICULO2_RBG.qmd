@@ -32,8 +32,7 @@ tabla_cv       <- readRDS("../data/processed/cv_gam.rds")
 
 ## Abstract
 
-<!-- TODO: 150-250 palabras. Objetivo, dataset, metodo (GBN), 3 estructuras
-comparadas, hallazgo principal (DAG 1 mejor BIC/AIC), sin citar tablas. -->
+Este trabajo implementa un modelo probabilístico —una red bayesiana gaussiana (GBN)— para comprender cómo distintos biomarcadores clínicos influyen en el diagnóstico de la enfermedad renal crónica (ERC) y para responder consultas probabilísticas de relevancia clínica. Se utilizó el *Chronic Kidney Disease Dataset*, restringido a sus once variables continuas sobre una submuestra de 214 casos completos. A partir de entrevistas con tres especialistas del entorno médico se construyeron tres estructuras candidatas (DAGs), que comparten un núcleo causal común —la edad como origen, la presión arterial y la glucosa como factores de riesgo intermedios, y un eje hematológico como consecuencia del daño renal— pero difieren en la ubicación de la creatinina sérica y en el número y disposición de los arcos. Las tres redes se ajustaron por máxima verosimilitud y se evaluaron con los criterios BIC y AIC. La estructura que ubica a la creatinina sérica como único punto de convergencia (DAG 1) obtuvo el mejor ajuste en ambos criterios, pese a no ser la más compleja de las tres.
 
 ## Introducción
 
@@ -55,14 +54,11 @@ El resto del artículo se organiza de la siguiente manera. La sección de Métod
 
 ### Datos
 
-El conjunto de datos utilizado corresponde al *Chronic Kidney Disease Dataset*, que contiene registros clínicos de 400 pacientes con y sin diagnóstico de enfermedad renal crónica. Cada registro incluye variables demográficas, resultados de análisis de sangre y orina, y comorbilidades reportadas.
+El conjunto de datos utilizado corresponde al *Chronic Kidney Disease Dataset* del UCI Machine Learning Repository (Rubini et al., 2015), que contiene registros clínicos de 400 pacientes con y sin diagnóstico de enfermedad renal crónica. Cada registro incluye variables demográficas, resultados de análisis de sangre y orina, y comorbilidades reportadas.
 
 Dado que una red bayesiana gaussiana asume que cada nodo sigue una distribución normal condicionada a sus padres, el modelo principal se restringió a las once variables continuas del conjunto: edad (`age`), presión arterial (`bp`), glucosa en sangre aleatoria (`bgr`), urea en sangre (`bu`), creatinina sérica (`sc`), sodio (`sod`), potasio (`pot`), hemoglobina (`hemo`), volumen de células empacadas (`pcv`), conteo de glóbulos blancos (`wc`) y conteo de glóbulos rojos (`rc`).
 
 Se excluyeron del modelo principal las variables categóricas del conjunto original, así como tres variables que, pese a estar codificadas numéricamente, corresponden a escalas semicuantitativas y no a mediciones continuas: la densidad urinaria (`sg`), que toma únicamente cinco valores discretos, y la albúmina (`al`) y el azúcar en orina (`su`), reportadas como grados de tira reactiva en una escala ordinal de 0 a 5. Modelar estas variables como nodos gaussianos habría violado el supuesto distribucional de la GBN. Las variables de diabetes (`dm`) e hipertensión (`htn`) se reservaron para la extensión con variables categóricas descrita más adelante.
-
-<!-- TODO: confirmar la procedencia exacta del dataset (¿UCI? ¿otra fuente?)
-antes de citarlo en Referencias. No inventar la fuente. -->
 
 ### Preprocesamiento
 
@@ -76,7 +72,7 @@ Se optó por un análisis de casos completos, que conserva 214 de los 400 regist
 
 ### Estructuras candidatas (DAGs)
 
-Se realizaron entrevistas con tres personas del entorno médico familiar; la mamá de Grethel, la tía de Matías Hidalgo, ambas médicas, y una amiga de Daniel Rodríguez, estudiante próxima a egresar de la carrera de Medicina, a quienes se les explicó el concepto de una DAG y con quienes se construyó cada estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables: edad, presión arterial, glucosa en sangre (aleatoria), creatinina sérica, urea en sangre, sodio, potasio, hemoglobina, volumen de células empacadas y conteo de glóbulos blancos y rojos. Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Sin embargo, difieren en aspectos clave: la primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables; la segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más de estilo de vida y genética que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias; mientras que la tercera planteó la estructura más elaborada, sugiriendo que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación del riñón, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola, reflejando el carácter multifactorial de la anemia renal, y añadiendo una relación entre potasio y sodio no considerada por las otras dos especialistas.
+Se realizaron entrevistas con tres personas del entorno médico familiar; la mamá de Grethel, la tía de Matías Hidalgo, ambas médicas, y una prima de Daniel Rodríguez, estudiante próxima a egresar de la carrera de Medicina, a quienes se les explicó el concepto de una DAG y con quienes se construyó cada estructura de manera conjunta, discutiendo la justificación clínica de cada relación de dependencia propuesta sobre las mismas once variables: edad, presión arterial, glucosa en sangre (aleatoria), creatinina sérica, urea en sangre, sodio, potasio, hemoglobina, volumen de células empacadas y conteo de glóbulos blancos y rojos. Las tres estructuras comparten un núcleo causal común: la edad como origen, la presión arterial y la glucosa en sangre como factores de riesgo intermedios, y el eje hematológico hemoglobina → volumen de células empacadas → conteo de glóbulos rojos como consecuencia del daño renal. Sin embargo, difieren en aspectos clave: la primera entrevistada ubicó a la creatinina sérica como único punto de convergencia por el que pasan todas las demás variables; la segunda limitó la influencia de la edad únicamente a la presión arterial, argumentando que la glucosa depende más de estilo de vida y genética que del envejecimiento, y propuso que tanto la glucosa en sangre como el conteo de glóbulos blancos inciden directamente sobre la creatinina sérica sin variables intermedias; mientras que la tercera planteó la estructura más elaborada, sugiriendo que la hiperglucemia crónica afecta al conteo de glóbulos blancos sin mediación del riñón, que la hemoglobina depende de tres variables (urea en sangre, conteo de glóbulos blancos y sodio) en lugar de una sola, reflejando el carácter multifactorial de la anemia renal, y añadiendo una relación entre potasio y sodio no considerada por las otras dos especialistas.
 
 ![**DAG 1** — creatinina sérica como punto único de convergencia.](../output/figures/dag1_ckd.png)
 
@@ -132,10 +128,7 @@ Finalmente, dado que un criterio de información agregado puede ocultar comporta
 
 Cada especialista entrevistada propuso dos consultas de interés clínico que pudieran resolverse mediante el modelo, para un total de seis. Las consultas se expresan en notación de probabilidad condicional de la siguiente forma:
 
-<!-- PENDIENTE: confirmar qué especialista propuso cada consulta y
-sustituir las etiquetas entre corchetes antes de entregar. -->
-
-**Consultas propuestas por [primera especialista]:**
+**Consultas propuestas por la mamá de Grethel:**
 
 - **Q1.** Probabilidad de que la creatinina sérica supere 1.5 mg/dL en un paciente con presión arterial de 100 mmHg y glucosa en sangre de 150 mg/dL:
 $$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
@@ -143,7 +136,7 @@ $$P(sc > 1.5 \mid bp = 100,\ bgr = 150)$$
 - **Q2.** Probabilidad de que la hemoglobina sea inferior a 10 g/dL, indicativa de anemia, en un paciente de 65 años:
 $$P(hemo < 10 \mid age = 65)$$
 
-**Consultas propuestas por [segunda especialista]:**
+**Consultas propuestas por la tía de Matías:**
 
 - **Q3.** Probabilidad de que el conteo de glóbulos blancos supere 11,000 células/mm³ en un paciente con hematocrito inferior a 30%:
 $$P(wc > 11000 \mid pcv < 30)$$
@@ -151,7 +144,7 @@ $$P(wc > 11000 \mid pcv < 30)$$
 - **Q4.** Probabilidad de que el potasio supere 5.5 mEq/L, umbral de hipercalemia, en un paciente con creatinina sérica de 2.2 mg/dL y urea en sangre de 45 mg/dL:
 $$P(pot > 5.5 \mid sc = 2.2,\ bu = 45)$$
 
-**Consultas propuestas por [tercera especialista]:**
+**Consultas propuestas por la prima de Daniel:**
 
 - **Q5.** Probabilidad de que el hematocrito sea inferior a 33% en un paciente con urea de 60 mg/dL, sodio de 130 mEq/L y conteo de glóbulos blancos de 11,000 células/mm³:
 $$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
@@ -160,83 +153,6 @@ $$P(pcv < 33 \mid bu = 60,\ sod = 130,\ wc = 11000)$$
 $$P(rc < 3.8 \mid hemo = 9.5)$$
 
 Las consultas se resolvieron sobre la estructura con mejor ajuste mediante inferencia aproximada por simulación, empleando la función `cpquery()` de `bnlearn`. Dado que toda la evidencia se expresa como valores puntuales sobre variables continuas, se utilizó el método de *likelihood weighting*, apropiado para este tipo de condicionamiento. Cada consulta se estimó con 10⁶ muestras y una semilla fija, de modo que los resultados sean reproducibles pese a la naturaleza estocástica del procedimiento.
-
-
-### Extensión con variables categóricas
-
-<!-- TODO: describir el modelo mixto de 04_categoricas.R:
-- Por qué las categóricas no entran en una GBN puramente gaussiana
-- Redes condicional-gaussianas (CLG): las variables discretas solo
-  pueden ser nodos raíz o padres de nodos continuos, nunca hijos
-- Se extendió la mejor DAG con dm (diabetes) y htn (hipertensión),
-  las dos causas principales de ERC, mediante cuatro arcos:
-  dm → bgr, dm → sc, htn → bp, htn → sc
-- Se ajustó con bn.fit() sobre 212 casos completos y se comparó
-  BIC/AIC (bic-cg y aic-cg) contra la GBN gaussiana pura -->
-
-### Modelos no paramétricos
-
-<!-- TODO: redactar a partir de estos puntos:
-
-- Una GBN asume que cada nodo hijo es una combinación LINEAL de sus
-  padres. El modelo no paramétrico relaja ese supuesto: para un nodo
-  hijo y con padres x_1, ..., x_p se modela
-
-      y = beta_0 + f_1(x_1) + ... + f_p(x_p) + error
-
-  donde cada f_j es una función suave estimada de los datos (spline)
-  en lugar de un coeficiente lineal fijo.
-
-- Un spline es una función construida por pedazos, típicamente
-  polinomios de grado 3 unidos en puntos de corte, resultado de una
-  suma ponderada de funciones base.
-
-- Se ajustó un modelo aditivo generalizado (GAM) por cada nodo con
-  padres mediante gam() del paquete mgcv con method = "REML", y un
-  modelo de sólo intercepto para el nodo raíz (age).
-
-- El BIC y el AIC de la red completa se obtienen como la SUMA de los
-  scores de las distribuciones locales, ya que la log-verosimilitud
-  conjunta se factoriza según la DAG.
-
-- Mencionar la restricción sobre bp: al tomar únicamente nueve valores
-  distintos (medición clínica redondeada), la base del spline debió
-  reducirse a k = 8. Es una limitación del dato, no del método.
-
-- Sobre la escala de los criterios: BIC() y AIC() de R usan la
-  convención BIC_R = -2*loglik + k*log(n), mientras que score() de
-  bnlearn usa BIC_bnlearn = loglik - (k/2)*log(n). Ambas se
-  relacionan por BIC_bnlearn = -BIC_R / 2, por lo que los scores del
-  modelo no paramétrico se convirtieron a la escala de bnlearn y son
-  directamente comparables con los de las secciones anteriores (mayor
-  es mejor).
-
-- Se verificó la conversión recalculando el BIC del modelo lineal por
-  ambas vías: -8799.85 mediante BIC() convertido y -8799.90 mediante
-  score(). La diferencia de 0.05 se debe a que bnlearn estima la
-  varianza de cada nodo con denominador insesgado mientras que
-  logLik() de R emplea el estimador de máxima verosimilitud.
-
-- Para evaluar si la mejora agregada es homogénea, el BIC se
-  descompuso por distribución local, y se realizó una validación
-  cruzada de 10 particiones comparando el error de predicción fuera
-  de muestra de cada nodo bajo ambos enfoques. Esto permite
-  distinguir la no linealidad genuina del sobreajuste. -->
-
-### Consultas (queries)
-
-<!-- TODO: listar las 6 queries en notación de probabilidad, indicando
-qué especialista propuso cada una (2 por especialista):
-
-Q1: P(sc > 1.5 | bp = 100, bgr = 150)
-Q2: P(hemo < 10 | age = 65)
-Q3: P(wc > 11000 | pcv < 30)
-Q4: P(pot > 5.5 | sc = 2.2, bu = 45)
-Q5: P(pcv < 33 | bu = 60, sod = 130, wc = 11000)
-Q6: P(rc < 3.8 | hemo = 9.5)
-
-Mencionar que se resolvieron por muestreo con likelihood weighting
-(cpquery, método "lw", 10^6 muestras, semilla fija para reproducibilidad). -->
 
 ## Resultados
 
@@ -260,8 +176,7 @@ kable(tabla_dags_fmt,
       caption = "BIC y AIC de las tres GBN ajustadas sobre los mismos 214 casos completos.")
 ```
 
-<!-- TODO: 2-3 frases descriptivas SIN interpretar: cuál obtuvo el
-valor más alto de BIC y AIC, y cuál la diferencia entre estructuras. -->
+La DAG 1 obtuvo el valor más alto tanto de BIC (-8799.90) como de AIC (-8744.37), seguida por la DAG 2 (BIC -8805.68, AIC -8751.82) y, en último lugar, la DAG 3 (BIC -8814.43, AIC -8755.52). La diferencia entre la mejor y la peor estructura es de 14.53 puntos en BIC y de 11.15 puntos en AIC.
 
 ### Resultados de las consultas
 
@@ -296,9 +211,7 @@ kable(tabla_q,
       caption = "Resultados de las seis consultas sobre la mejor estructura (DAG 1).")
 ```
 
-<!-- TODO: reportar sin interpretar: cuántas queries se respondieron,
-cuáles no y por qué motivo estructural (la justificación formal por
-d-separación va en la Discusión). -->
+De las seis consultas planteadas, cuatro se resolvieron sobre la DAG 1: Q1 (0.7749), Q2 (0.1395), Q4 (0.0601) y Q6 (0.5483). Las consultas Q3 y Q5 no resultaron respondibles: en ambos casos la evidencia proporcionada no se conecta estructuralmente con la variable objetivo dentro de la DAG 1. La justificación formal por d-separación de estos dos casos se desarrolla en la Discusión.
 
 ### Modelo mixto con variables categóricas
 
@@ -319,9 +232,7 @@ kable(tabla_mixto_fmt,
 
 ![**DAG mixta** — DAG 1 extendida con los nodos categóricos de diabetes e hipertensión.](../output/figures/dag_mixto.png)
 
-<!-- TODO: reportar los valores de las dos consultas de ejemplo:
-P(sc > 1.5 | dm = yes, htn = yes) = 0.7835
-P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
+Sobre el modelo mixto, la probabilidad de creatinina elevada asciende a $P(sc > 1.5 \mid dm = \text{yes},\ htn = \text{yes}) = 0.7835$ en un paciente con ambas comorbilidades, frente a $P(sc > 1.5 \mid dm = \text{no},\ htn = \text{no}) = 0.4070$ en un paciente sin ninguna.
 
 ### Modelos no paramétricos
 
@@ -363,23 +274,13 @@ kable(tabla_cv,
 
 ![Efectos parciales estimados para cada término suave del modelo no paramétrico.](../output/figures/efectos_parciales_gam.png)
 
-<!-- TODO: reportar sin interpretar:
-- El modelo no paramétrico obtuvo BIC -8740.56 frente a -8799.85 del
-  modelo lineal (mejora de 59.29 puntos) y AIC -8606.15 frente a
-  -8744.31 (mejora de 138.16 puntos)
-- Todos los términos suaves resultaron significativos (p < 0.05)
-  excepto s(age) en el nodo bp (p = 0.1949)
-- Los grados de libertad efectivos oscilan entre 1.636 (bp ~ age) y
-  8.384 (bu ~ sc)
-- La descomposición por nodo muestra que el término suave mejora el
-  BIC en 5 de los 10 nodos con padres; pcv (+29.76), hemo (+24.34) y
-  rc (+7.98) concentran la mayor parte de la ganancia, mientras que
-  pot (-4.49), bgr (-2.87), bp (-2.02), wc (-0.98) y sc (-0.55)
-  registran deterioro
-- En validación cruzada el modelo no paramétrico redujo el error de
-  predicción en 6 de 10 nodos, con las mayores reducciones en pcv
-  (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos en
-  sc (26.9%) y bu (6.2%) -->
+El modelo no paramétrico obtuvo un BIC de -8740.56 frente a -8799.85 del modelo lineal, una mejora de 59.29 puntos, y un AIC de -8606.15 frente a -8744.31, una mejora de 138.16 puntos.
+
+Todos los términos suaves resultaron significativos (p < 0.05), con la única excepción de s(age) en el nodo bp (p = 0.1949). Los grados de libertad efectivos oscilan entre 1.636, para bp ~ age, y 8.384, para bu ~ sc.
+
+La descomposición del BIC por distribución local muestra que el término suave mejora el ajuste en 5 de los 10 nodos con padres: pcv (+29.76), hemo (+24.34) y rc (+7.98) concentran la mayor parte de la ganancia, mientras que pot (-4.49), bgr (-2.87), bp (-2.02), wc (-0.98) y sc (-0.55) registran deterioro.
+
+En validación cruzada, el modelo no paramétrico redujo el error de predicción fuera de muestra en 6 de los 10 nodos, con las mayores reducciones en pcv (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos de error en sc (26.9%) y bu (6.2%).
 
 ## Discusión
 
@@ -523,6 +424,8 @@ Diabetes.org (American Diabetes Association). (s.f.). Diabetes, presión arteria
 National Kidney Foundation. (2024, 8 noviembre). La hipertensión arterial y la diabetes: dos enemigos silenciosos para tus riñones. Kidney.org. https://www.kidney.org/es/news-stories/la-hipertension-arterial-y-la-diabetes-dos-enemigos-silenciosos-para-tus-rinones
 
 Organización Panamericana de la Salud. (2014, 11 marzo). Crece el número de enfermos renales entre los mayores de 60 años con diabetes e hipertensión. OPS/OMS. https://www.paho.org/es/noticias/11-3-2014-crece-numero-enfermos-renales-entre-mayores-60-anos-con-diabetes-e-hipertension
+
+Rubini, L., Soundarapandian, P., & Eswaran, P. (2015). Chronic Kidney Disease [Conjunto de datos]. UCI Machine Learning Repository. https://doi.org/10.24432/C5G020
 
 Serna-Soto, J. L., Ortega-Mendoza, R. A. de J., Rivera-Ramírez, O. A., & Pérez-Peláez, G. C. (2016). Prevalencia de enfermedad renal crónica en pacientes con diabetes mellitus e hipertensión arterial en el Hospital Escandón. Salud Pública de México, 58(3), 338–339. https://doi.org/10.21149/spm.v58i3.7918
 
