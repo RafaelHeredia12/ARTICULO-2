@@ -89,7 +89,9 @@ desc <- data.frame(
   Máximo   = round(sapply(dat_cc, max), 2),
   Asimetría = round(sapply(dat_cc, function(x)
                 mean((x - mean(x))^3) / sd(x)^3), 2),
-  `Shapiro p` = signif(sapply(dat_cc, function(x) shapiro.test(x)$p.value), 3),
+    `Shapiro p` = ifelse(sapply(dat_cc, function(x) shapiro.test(x)$p.value) < 0.001,
+                       "< 0.001",
+                       sprintf("%.3f", sapply(dat_cc, function(x) shapiro.test(x)$p.value))),
   check.names = FALSE, row.names = NULL
 )
 kable(desc, align = c("l", rep("r", 6)), row.names = FALSE,
