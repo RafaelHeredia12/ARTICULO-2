@@ -9,8 +9,8 @@
 #      corrompe columnas que deberían ser numéricas o categóricas
 #   3. Corrige valores fisiológicamente imposibles en sod y pot
 #   4. Construye el dataset con el universo continuo final
-#      acordado (11 variables) para las 4 GBN, más classification
-#      y dm de apoyo
+#      acordado (11 variables) para las 4 GBN, más classification,
+#      dm y htn de apoyo (usadas en el modelo mixto de 04_categoricas.R)
 #   5. Guarda un dataset limpio en data/processed/
 # ============================================================
 
@@ -77,20 +77,15 @@ cat("Usen la misma submuestra (mismas filas) para ajustar las 4 GBN,\n")
 cat("para que BIC/AIC sean comparables entre estructuras (mismo n).\n")
 
 # Guardar
-df_final <- df %>% select(all_of(vars_continuas), classification, dm)
+df_final <- df %>% select(all_of(vars_continuas), classification, dm, htn)
 dir.create("data/processed", showWarnings = FALSE, recursive = TRUE)
 saveRDS(df_final, "data/processed/ckd_clean.rds")
 write.csv(df_final, "data/processed/ckd_clean.csv", row.names = FALSE, na = "")
 
 # Version SOLO para ajuste de GBN: unicamente las 11 continuas, nada
-# de classification/dm. 
+# de classification/dm. Usen ESTE archivo (no ckd_clean.rds/csv) al
+# construir sus DAGs, para que empty.graph()/bn.fit() nunca incluyan
+# nodos que no son parte del modelo gaussiano.
 df_gbn <- df %>% select(all_of(vars_continuas))
 saveRDS(df_gbn, "data/processed/ckd_gbn.rds")
 write.csv(df_gbn, "data/processed/ckd_gbn.csv", row.names = FALSE, na = "")
-
-
-# También guardamos la versión completa (incluye sg, al, su, y las
-# categóricas de texto) por si se usan en la sección de variables
-# categóricas/discretas del artículo
-# saveRDS(df, "data/processed/ckd_clean_full.rds")
-# write.csv(df, "data/processed/ckd_clean_full.csv", row.names = FALSE, na = "")

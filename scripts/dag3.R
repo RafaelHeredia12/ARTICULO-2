@@ -1,5 +1,5 @@
 # ===========================================================
-# dag1.R
+# dag3.R
 # médico tres (prima de Daniel)
 # ===========================================================
 
@@ -34,7 +34,7 @@ arcs(dag) <- matrix(c(
 # 3. Guardar imagen de la DAG
 dir.create("output/figures", recursive = TRUE, showWarnings = FALSE)
 
-png("output/figures/dag_fisiopatologica_ckd.png", width = 1200, height = 900, res = 150)
+png("output/figures/dag3_ckd.png", width = 1200, height = 900, res = 150)
 graphviz.plot(dag, layout = "dot", shape = "ellipse")
 dev.off()
 

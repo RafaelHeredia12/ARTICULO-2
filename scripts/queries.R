@@ -32,3 +32,14 @@ cpquery(ckd_fit, event = (wc > 11000), evidence = list(pcv = 28), method = "lw")
 # P(pot > 5.5 | sc = 2.2, bu = 45)
 cpquery(ckd_fit, event = (pot > 5.5), evidence = list(sc = 2.2, bu = 45), method = "lw")
 #0.06177862
+
+# Query 5: ¿Cuál es la probabilidad de que el hematocrito (pcv) sea menor
+# a 33%, dado un perfil con urea (bu) de 60 mg/dL, sodio (sod) de 130 mEq/L
+# y glóbulos blancos (wc) de 11,000 cells/cumm?
+# P(pcv < 33 | bu = 60, sod = 130, wc = 11000)
+cpquery(ckd_fit, event = (pcv < 33), evidence = list(bu = 60, sod = 130, wc = 11000), method = "lw")
+
+# Query 6: ¿Cuál es la probabilidad de tener un conteo bajo de glóbulos rojos
+# (rc < 3.8 M/mcL), dado que la hemoglobina (hemo) ha caído a 9.5 g/dL?
+# P(rc < 3.8 | hemo = 9.5)
+cpquery(ckd_fit, event = (rc < 3.8), evidence = list(hemo = 9.5), method = "lw") 
