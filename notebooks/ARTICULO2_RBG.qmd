@@ -26,8 +26,11 @@ resultados_q   <- readRDS("../data/processed/resultados_queries.rds")
 tabla_mixto    <- readRDS("../data/processed/scores_mixto.rds")
 tabla_np       <- readRDS("../data/processed/scores_noparametrico.rds")
 tabla_edf      <- readRDS("../data/processed/edf_gam.rds")
+<<<<<<< HEAD
 tabla_nodo     <- readRDS("../data/processed/bic_por_nodo.rds")
 tabla_cv       <- readRDS("../data/processed/cv_gam.rds")
+=======
+>>>>>>> 3f23e105280590eece2067050bc400fe85468011
 ```
 
 ## Abstract
@@ -133,6 +136,7 @@ ajuste. -->
   distintos (medición clínica redondeada), la base del spline debió
   reducirse a k = 8. Es una limitación del dato, no del método.
 
+<<<<<<< HEAD
 - Sobre la escala de los criterios: BIC() y AIC() de R usan la
   convención BIC_R = -2*loglik + k*log(n), mientras que score() de
   bnlearn usa BIC_bnlearn = loglik - (k/2)*log(n). Ambas se
@@ -152,6 +156,13 @@ ajuste. -->
   cruzada de 10 particiones comparando el error de predicción fuera
   de muestra de cada nodo bajo ambos enfoques. Esto permite
   distinguir la no linealidad genuina del sobreajuste. -->
+=======
+- ADVERTENCIA a explicitar en el texto: en esta sección BIC y AIC se
+  calculan con las funciones base de R, donde un valor MENOR indica
+  mejor ajuste. Es la convención opuesta a score() de bnlearn, usada
+  en las secciones anteriores. Por lo tanto estos valores sólo se
+  comparan entre sí y no con los de las tablas previas. -->
+>>>>>>> 3f23e105280590eece2067050bc400fe85468011
 
 ### Consultas (queries)
 
@@ -260,7 +271,11 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 kable(tabla_np,
       col.names = c("Modelo", "BIC", "AIC"),
       align = c("l", "r", "r"),
+<<<<<<< HEAD
       caption = "Comparación entre la GBN lineal y el modelo no paramétrico basado en splines, en la escala de bnlearn (mayor es mejor).")
+=======
+      caption = "Comparación entre la GBN lineal y el modelo no paramétrico basado en splines. En esta tabla un valor menor indica mejor ajuste.")
+>>>>>>> 3f23e105280590eece2067050bc400fe85468011
 ```
 
 ```{r edf-table}
@@ -273,6 +288,7 @@ kable(tabla_edf,
       caption = "Grados de libertad efectivos de cada término suave. Un valor cercano a 1 indica una relación esencialmente lineal.")
 ```
 
+<<<<<<< HEAD
 ```{r bic-por-nodo}
 #| echo: false
 kable(tabla_nodo,
@@ -310,6 +326,18 @@ kable(tabla_cv,
   predicción en 6 de 10 nodos, con las mayores reducciones en pcv
   (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos en
   sc (26.9%) y bu (6.2%) -->
+=======
+![Efectos parciales estimados para cada término suave del modelo no paramétrico.](../output/figures/efectos_parciales_gam.png)
+
+<!-- TODO: reportar sin interpretar:
+- El modelo no paramétrico obtuvo BIC 17481.12 frente a 17599.70 del
+  modelo lineal (diferencia de 118.58 puntos) y AIC 17212.30 frente
+  a 17488.62
+- Todos los términos suaves resultaron significativos (p < 0.05)
+  excepto s(age) en el nodo bp (p = 0.1949)
+- Los grados de libertad efectivos oscilan entre 1.636 (bp ~ age) y
+  8.384 (bu ~ sc) -->
+>>>>>>> 3f23e105280590eece2067050bc400fe85468011
 
 ## Discusión
 
@@ -369,6 +397,7 @@ de sc sobre pot. -->
 
 <!-- TODO: interpretar. Puntos a desarrollar:
 
+<<<<<<< HEAD
 - El modelo no paramétrico mejoró tanto el BIC como el AIC agregados
   (59.29 y 138.16 puntos respectivamente). Sin embargo, la
   descomposición por nodo muestra que esa mejora NO está distribuida
@@ -414,6 +443,38 @@ de sc sobre pot. -->
   agregado favorece al modelo flexible, pero un análisis por nodo
   revela que el enfoque adecuado es mixto — splines en el eje
   hematológico y forma lineal en el resto. -->
+=======
+- El modelo no paramétrico mejoró tanto BIC como AIC, lo que indica
+  que la ganancia en ajuste compensó la penalización por complejidad
+  adicional. Esto sugiere que varias relaciones entre biomarcadores
+  no son estrictamente lineales.
+
+- Usar los edf para argumentar CUÁLES relaciones son no lineales:
+  * bu ~ sc alcanza el edf más alto (8.384), lo que apunta a una
+    relación marcadamente no lineal entre creatinina y urea
+  * pcv ~ hemo (6.609) y pot ~ sc (4.870) también muestran curvatura
+    relevante
+  * bp ~ age es el único término no significativo (edf 1.636,
+    p = 0.1949): la relación entre edad y presión arterial es
+    prácticamente lineal en esta muestra, y el spline no aporta
+    sobre el modelo lineal
+
+- Trade-off flexibilidad vs. complejidad e interpretabilidad, que es
+  lo que pide la rúbrica:
+  * A favor: captura relaciones curvas que la GBN lineal no puede
+    representar, con mejor ajuste en ambos criterios
+  * En contra: el modelo deja de tener coeficientes interpretables
+    como "un aumento de una unidad en sc implica X en bu"; el efecto
+    ahora es una curva que debe leerse gráficamente
+  * En contra: cpquery() de bnlearn sólo opera sobre modelos
+    paramétricos, de modo que responder las consultas con el modelo
+    no paramétrico exigiría implementar manualmente logic sampling o
+    likelihood weighting. Por eso las consultas de este trabajo se
+    resolvieron sobre la GBN lineal.
+
+- Discutir la limitación de bp: con nueve valores únicos, ninguna
+  técnica flexible puede extraer mucha más estructura de esa variable. -->
+>>>>>>> 3f23e105280590eece2067050bc400fe85468011
 
 ### Articulación de los hallazgos
 
