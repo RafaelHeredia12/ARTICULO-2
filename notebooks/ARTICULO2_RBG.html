@@ -2386,7 +2386,6 @@ ajuste. -->
   distintos (medición clínica redondeada), la base del spline debió
   reducirse a k = 8. Es una limitación del dato, no del método.
 
-<<<<<<< HEAD
 - Sobre la escala de los criterios: BIC() y AIC() de R usan la
   convención BIC_R = -2*loglik + k*log(n), mientras que score() de
   bnlearn usa BIC_bnlearn = loglik - (k/2)*log(n). Ambas se
@@ -2406,13 +2405,6 @@ ajuste. -->
   cruzada de 10 particiones comparando el error de predicción fuera
   de muestra de cada nodo bajo ambos enfoques. Esto permite
   distinguir la no linealidad genuina del sobreajuste. -->
-=======
-- ADVERTENCIA a explicitar en el texto: en esta sección BIC y AIC se
-  calculan con las funciones base de R, donde un valor MENOR indica
-  mejor ajuste. Es la convención opuesta a score() de bnlearn, usada
-  en las secciones anteriores. Por lo tanto estos valores sólo se
-  comparan entre sí y no con los de las tablas previas. -->
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 </section>
 <section id="consultas-queries" class="level3">
 <h3 class="anchored" data-anchor-id="consultas-queries">Consultas (queries)</h3>
@@ -2599,11 +2591,7 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 <div class="cell">
 <div class="cell-output-display">
 <table class="caption-top table table-sm table-striped small">
-<<<<<<< HEAD
 <caption>Comparación entre la GBN lineal y el modelo no paramétrico basado en splines, en la escala de bnlearn (mayor es mejor).</caption>
-=======
-<caption>Comparación entre la GBN lineal y el modelo no paramétrico basado en splines. En esta tabla un valor menor indica mejor ajuste.</caption>
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 <thead>
 <tr class="header">
 <th style="text-align: left;">Modelo</th>
@@ -2614,7 +2602,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 <tbody>
 <tr class="odd">
 <td style="text-align: left;">GBN lineal (DAG 1)</td>
-<<<<<<< HEAD
 <td style="text-align: right;">-8799.85</td>
 <td style="text-align: right;">-8744.31</td>
 </tr>
@@ -2622,15 +2609,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 <td style="text-align: left;">Modelo no parametrico GAM/splines (DAG 1)</td>
 <td style="text-align: right;">-8740.56</td>
 <td style="text-align: right;">-8606.15</td>
-=======
-<td style="text-align: right;">17599.70</td>
-<td style="text-align: right;">17488.62</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Modelo no parametrico GAM/splines (DAG 1)</td>
-<td style="text-align: right;">17481.12</td>
-<td style="text-align: right;">17212.30</td>
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 </tr>
 </tbody>
 </table>
@@ -2714,7 +2692,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 <td style="text-align: left;">s(hemo)</td>
 <td style="text-align: right;">4.512</td>
 <td style="text-align: right;">0.0000</td>
-<<<<<<< HEAD
 </tr>
 </tbody>
 </table>
@@ -2869,8 +2846,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 <td style="text-align: right;">2.869</td>
 <td style="text-align: right;">3.640</td>
 <td style="text-align: right;">-26.9</td>
-=======
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 </tr>
 </tbody>
 </table>
@@ -2883,7 +2858,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
 </figure>
 </div>
 <!-- TODO: reportar sin interpretar:
-<<<<<<< HEAD
 - El modelo no paramétrico obtuvo BIC -8740.56 frente a -8799.85 del
   modelo lineal (mejora de 59.29 puntos) y AIC -8606.15 frente a
   -8744.31 (mejora de 138.16 puntos)
@@ -2900,15 +2874,6 @@ P(sc > 1.5 | dm = no,  htn = no)  = 0.4070 -->
   predicción en 6 de 10 nodos, con las mayores reducciones en pcv
   (17.4%), hemo (13.1%) y rc (6.8%), y los mayores incrementos en
   sc (26.9%) y bu (6.2%) -->
-=======
-- El modelo no paramétrico obtuvo BIC 17481.12 frente a 17599.70 del
-  modelo lineal (diferencia de 118.58 puntos) y AIC 17212.30 frente
-  a 17488.62
-- Todos los términos suaves resultaron significativos (p < 0.05)
-  excepto s(age) en el nodo bp (p = 0.1949)
-- Los grados de libertad efectivos oscilan entre 1.636 (bp ~ age) y
-  8.384 (bu ~ sc) -->
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 </section>
 </section>
 <section id="discusión" class="level2">
@@ -2968,7 +2933,6 @@ de sc sobre pot. -->
 <h3 class="anchored" data-anchor-id="modelos-no-paramétricos-2">Modelos no paramétricos</h3>
 <!-- TODO: interpretar. Puntos a desarrollar:
 
-<<<<<<< HEAD
 - El modelo no paramétrico mejoró tanto el BIC como el AIC agregados
   (59.29 y 138.16 puntos respectivamente). Sin embargo, la
   descomposición por nodo muestra que esa mejora NO está distribuida
@@ -3014,38 +2978,6 @@ de sc sobre pot. -->
   agregado favorece al modelo flexible, pero un análisis por nodo
   revela que el enfoque adecuado es mixto — splines en el eje
   hematológico y forma lineal en el resto. -->
-=======
-- El modelo no paramétrico mejoró tanto BIC como AIC, lo que indica
-  que la ganancia en ajuste compensó la penalización por complejidad
-  adicional. Esto sugiere que varias relaciones entre biomarcadores
-  no son estrictamente lineales.
-
-- Usar los edf para argumentar CUÁLES relaciones son no lineales:
-  * bu ~ sc alcanza el edf más alto (8.384), lo que apunta a una
-    relación marcadamente no lineal entre creatinina y urea
-  * pcv ~ hemo (6.609) y pot ~ sc (4.870) también muestran curvatura
-    relevante
-  * bp ~ age es el único término no significativo (edf 1.636,
-    p = 0.1949): la relación entre edad y presión arterial es
-    prácticamente lineal en esta muestra, y el spline no aporta
-    sobre el modelo lineal
-
-- Trade-off flexibilidad vs. complejidad e interpretabilidad, que es
-  lo que pide la rúbrica:
-  * A favor: captura relaciones curvas que la GBN lineal no puede
-    representar, con mejor ajuste en ambos criterios
-  * En contra: el modelo deja de tener coeficientes interpretables
-    como "un aumento de una unidad en sc implica X en bu"; el efecto
-    ahora es una curva que debe leerse gráficamente
-  * En contra: cpquery() de bnlearn sólo opera sobre modelos
-    paramétricos, de modo que responder las consultas con el modelo
-    no paramétrico exigiría implementar manualmente logic sampling o
-    likelihood weighting. Por eso las consultas de este trabajo se
-    resolvieron sobre la GBN lineal.
-
-- Discutir la limitación de bp: con nueve valores únicos, ninguna
-  técnica flexible puede extraer mucha más estructura de esa variable. -->
->>>>>>> 3f23e105280590eece2067050bc400fe85468011
 </section>
 <section id="articulación-de-los-hallazgos" class="level3">
 <h3 class="anchored" data-anchor-id="articulación-de-los-hallazgos">Articulación de los hallazgos</h3>
